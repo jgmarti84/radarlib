@@ -1,0 +1,16 @@
+stages:
+  - test
+
+test:
+  image: python:3.12
+  stage: test
+  before_script:
+    - apt-get update && apt-get install -y --no-install-recommends git
+  script:
+    - python --version
+    - python -m venv .venv
+    - . .venv/bin/activate
+    - python -m pip install --upgrade pip setuptools wheel
+    - python -m pip install -e ".[dev]"
+    - python -m pytest -q
+  tags: []
