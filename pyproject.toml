@@ -1,0 +1,31 @@
+[tool.poetry]
+name = "radarlib"
+version = "0.1.0"
+description = "A Python library for radars."
+authors = ["Javier Guillermo Marti <jgmarti84@gmail.com>"]
+license = "MIT"
+
+# Tell Poetry where the package lives (src layout)
+packages = [
+  { include = "radarlib", from = "src" }
+]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+# Add your runtime dependencies here
+
+# dev deps using the new group API
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.0"
+tox = "^3.24"
+flake8 = "^6.0"
+black = "^24.0"
+mypy = "^1.10"
+
+# optional: provide an extras entry so pip install -e ".[dev]" works
+[tool.poetry.extras]
+dev = ["pytest", "tox", "flake8", "black", "mypy"]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

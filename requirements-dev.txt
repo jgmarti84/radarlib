@@ -1,0 +1,9 @@
+# filepath: /my-python-library/my-python-library/requirements-dev.txt
+pytest
+tox
+black
+flake8
+mypy
+ipython
+jupyter
+pre-commit
