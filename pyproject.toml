@@ -29,3 +29,18 @@ dev = ["pytest", "tox", "flake8", "black", "mypy"]
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+# Exclude vendored/legacy code (e.g. Python2 sources under bufr_resources/source_code)
+exclude = '''/(
+  \.eggs
+ | \.git
+ | \.hg
+ | \.mypy_cache
+ | \.tox
+ | \.venv
+ | build
+ | dist
+ | src/radarlib/io/bufr/bufr_resources
+)/'''
