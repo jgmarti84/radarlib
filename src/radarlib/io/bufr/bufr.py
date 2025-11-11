@@ -1,12 +1,14 @@
-import os
 import logging
-import zlib
+import os
 import time
-from typing import Any, Dict, List, Optional, Tuple
-from ctypes import cdll, c_char_p, c_int, c_double, POINTER, Structure, CDLL
-import numpy as np
+import zlib
 from contextlib import contextmanager
+from ctypes import CDLL, POINTER, Structure, c_char_p, c_double, c_int, cdll
+from typing import Any, Dict, List, Optional, Tuple
+
+import numpy as np
 import pandas as pd
+
 from src.radarlib import config
 
 
@@ -243,12 +245,12 @@ def parse_sweeps(vol: np.ndarray, nsweeps: int, elevs: np.ndarray) -> list[dict]
             minute,
             sec,
             product_type,
-        ) = vol[u: u + 13]
+        ) = vol[u : u + 13]
         u += 13
 
         elevation = elevs[sweep_idx] if sweep_idx < len(elevs) else None
         u += 1
-        ngates, range_size, range_offset, nrays, azimuth = vol[u: u + 5]
+        ngates, range_size, range_offset, nrays, azimuth = vol[u : u + 5]
         u += 5
 
         # skip optional duplicated type/product etc.
@@ -261,7 +263,7 @@ def parse_sweeps(vol: np.ndarray, nsweeps: int, elevs: np.ndarray) -> list[dict]
         for _ in range(multi_pri):
             multi_sec = vol[u]
             u += 1
-            data_chunk = vol[u: u + multi_sec]
+            data_chunk = vol[u : u + multi_sec]
             u += multi_sec
             # vectorized replace
             data_chunk = np.where(data_chunk == 99999, 255, data_chunk)
@@ -467,7 +469,8 @@ def build_info_dict(meta_vol: dict, meta_sweeps: list[dict]) -> dict:
 
     Returns:
         Diccionario 'info' con listas por campo para cada sweep y claves
-        generales del volumen.
+        _tmp_df = pd.DataFrame.from_dict(meta_sweeps)
+        sweeps_df = _tmp_df.drop(columns=drop_cols)  # type: ignore
     """
     nsweeps = meta_vol["nsweeps"]
     # =====================================================================
@@ -557,7 +560,9 @@ def dec_bufr_file(
 
     Returns:
         Tupla (meta_vol, sweeps, vol_data, run_log):
-            - meta_vol: diccionario con metadatos del volumen
+                _tmp_df = pd.DataFrame.from_dict(meta_sweeps)
+                sweeps_df = _tmp_df.drop(columns=drop_cols)  # type: ignore
+                sweeps_df = _tmp_df.drop(columns=drop_cols)  # type: ignore
             - sweeps: lista de diccionarios por barrido (con 'data')
             - vol_data: ndarray 2-D con los datos concatenados
             - run_log: lista con entradas de log (niveles/mensajes)
@@ -590,19 +595,22 @@ def dec_bufr_file(
                 try:
                     sw["data"] = decompress_sweep(sw)
                     return sw, None
-                except SweepConsistencyException as e:
+                except SweepConsistencyException:
                     vol_name = bufr_filename.split("/")[-1].split(".")[0][:-5]
                     product_type = sw.get("product_type", "N/A")
-                    message = f"{vol_name}: Se descarta barrido inconsistente ({product_type} / Sw: {idx}) (ngates fuera de limites)"
+                    message = (
+                        f"{vol_name}: Se descarta barrido inconsistente "
+                        f"({product_type} / Sw: {idx}) (ngates fuera de limites)"
+                    )
                     logger.warning(message)
                     return None, [2, message]
-                except Exception as e:
+                except Exception as exc:
                     logger.warning(
-                        f"Descartado barrido inconsistente en sweep {idx}: {e}"
+                        f"Descartado barrido inconsistente en sweep {idx}: {exc}"
                     )
                     return None, [
                         2,
-                        f"Descartado barrido inconsistente en sweep {idx}: {e}",
+                        f"Descartado barrido inconsistente en sweep {idx}: {exc}",
                     ]
 
             results = []
@@ -644,13 +652,19 @@ def dec_bufr_file(
 
             return vol_metadata, sweeps, vol_data, run_log
 
-    except Exception as e:
-        logger.error(f"Error en la decodificacion del archivo BUFR: {e}", exc_info=True)
-        run_log.append([3, str(e)])
-        raise ValueError(f"Error en la decodificacion del archivo BUFR: {e}")
+    except Exception as exc:
+        msg = f"Error en la decodificacion del archivo BUFR: {exc}"
+        logger.error(msg, exc_info=True)
+        run_log.append([3, str(exc)])
+        raise ValueError(msg)
 
 
-def bufr_to_dict(bufr_filename: str, root_resources: str = None, logger_name: str = None, legacy=False) -> Optional[dict]:  # type: ignore
+def bufr_to_dict(
+    bufr_filename: str,
+    root_resources: str | None = None,  # type: ignore
+    logger_name: str | None = None,
+    legacy: bool = False,
+) -> Optional[dict]:  # type: ignore
     """
     Procesa un archivo BUFR y devuelve una representación en forma de diccionario
     lista para uso por otras partes del pipeline.
@@ -668,7 +682,9 @@ def bufr_to_dict(bufr_filename: str, root_resources: str = None, logger_name: st
         Diccionario con 'data' e 'info' o None en caso de fallo
         (el error queda registrado en el logger).
     """
-    # TODO: include a check for input type. bufr_filename should be str or Path and not a list nor dict. Potentially include a fallback in case it's a list of strings
+    # TODO: include a check for input type. bufr_filename should be str or Path
+    # and not a list nor dict. Potentially include a fallback in case it's a
+    # list of strings
     filename = bufr_filename.split("/")[-1]
     logger_local = logging.getLogger(
         (logger_name or __name__) + "." + filename.split("_")[0]
@@ -680,7 +696,7 @@ def bufr_to_dict(bufr_filename: str, root_resources: str = None, logger_name: st
         try:
             meta_vol, meta_sweeps, vol_data, run_log = dec_bufr_file(
                 bufr_filename=bufr_filename,
-                root_resources=root_resources,
+                root_resources=root_resources,  # type: ignore[arg-type]
                 logger_name=logger_name,
             )
 

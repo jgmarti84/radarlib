@@ -6,8 +6,10 @@ Created on Wed Apr 19 11:10:26 2017
 @author: jsaffe
 """
 
-from ctypes import cdll, c_int, POINTER, c_char_p, Structure, c_double
+from ctypes import POINTER, Structure, c_char_p, c_double, c_int, cdll
+
 import numpy as np
+
 
 class point_t(Structure):
     _fields_ = [
@@ -156,11 +158,13 @@ for sweep in range (nsweeps):
     volumen.append(barrido)
 
 
+import struct
+
 #==============================================================================
 # Descompresion 
 #==============================================================================
 import zlib
-import struct
+
 for sweep in range(nsweeps):
     volumen[sweep]['data']=[]
     data_buf = buffer( volumen[sweep]['compress_data'] )

@@ -9,8 +9,9 @@ Config file format: JSON dictionary, e.g. {"MAX_SAMPLES": 100, "DEFAULT_TIMEOUT"
 """
 
 from __future__ import annotations
-import os
+
 import json
+import os
 from pathlib import Path
 from typing import Any, Dict, Optional
 

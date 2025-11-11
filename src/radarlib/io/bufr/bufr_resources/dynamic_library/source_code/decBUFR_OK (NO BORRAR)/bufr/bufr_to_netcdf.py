@@ -4,16 +4,15 @@ Created on Wed Aug 26 14:53:17 2015
 @author: jsaffe
 """
 
+import os
+from ctypes import POINTER, Structure, c_char_p, c_double, c_int, cdll
+from datetime import datetime
+
 import numpy as np
 import numpy.ma as ma
-
-import scipy.io
-import os
 import pyart
-from datetime import datetime
-from ctypes import cdll, c_int, POINTER, c_char_p, Structure, c_double
-
-from grc                    import global_parameters as cf
+import scipy.io
+from grc import global_parameters as cf
 
 
 class point_t(Structure):
@@ -740,8 +739,8 @@ def dec_bufr_file (bufr_filename=None):
     #==============================================================================
     # Descompresion 
     #==============================================================================
-    import zlib
     import struct
+    import zlib
     for sweep in range(nsweeps):
         sweeps_data[sweep]['data']=[]
         data_buf = buffer( sweeps_data[sweep]['compress_data'] )

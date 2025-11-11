@@ -6,7 +6,8 @@ from radarlib.io.bufr import bufr as bufr_mod
 
 def test_decompress_sweep_roundtrip(sample_sweep_bytes):
     sweep = dict(sample_sweep_bytes)
-    # The module's decompress_sweep expects a dict with 'compress_data', 'nrays', 'ngates'
+    # The module's decompress_sweep expects a dict with
+    # 'compress_data', 'nrays', 'ngates'
     out = bufr_mod.decompress_sweep(sweep)
     assert out.shape == (sweep["nrays"], sweep["ngates"])
     assert pytest.approx(out[0, 0]) == 0.5

@@ -55,6 +55,20 @@ black --check src tests --exclude src/radarlib/io/bufr/bufr_resources
 flake8 src tests --exclude src/radarlib/io/bufr/bufr_resources
 ```
 
+### Pre-commit hooks
+
+We recommend installing `pre-commit` so formatting and linting run automatically before commits.
+
+Install and enable hooks:
+
+```bash
+pip install pre-commit
+pre-commit install
+pre-commit run --all-files  # run once for existing files
+```
+
+This installs hooks defined in `.pre-commit-config.yaml` (Black, isort, flake8, and basic checks).
+
 ## Adding tests
 
 - Put unit tests under `tests/unit/` and name them `test_*.py`.
