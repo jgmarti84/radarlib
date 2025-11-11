@@ -21,10 +21,10 @@ lint:
   script:
     - pip install -e .
     - pip install -r requirements-dev.txt
-  - black --check src tests --exclude src/radarlib/io/bufr/bufr_resources
-  - flake8 src tests --exclude src/radarlib/io/bufr/bufr_resources
+    - black --check src tests --exclude src/radarlib/io/bufr/bufr_resources
+    - flake8 src tests --exclude src/radarlib/io/bufr/bufr_resources
   rules:
-    - if: $CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: '$CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "merge_request_event"'
 
 unit_tests:
   stage: test
@@ -39,7 +39,7 @@ unit_tests:
     paths:
       - report-unit.xml
   rules:
-    - if: $CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: '$CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "merge_request_event"'
 
 integration_tests:
   stage: integration
