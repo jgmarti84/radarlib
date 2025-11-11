@@ -1,0 +1,76 @@
+"""Simple configuration loader for radarlib.
+
+Load order:
+1. File pointed to by RADARLIB_CONFIG env var (if set).
+2. <package>/radarlib.json (if present).
+3. Built-in defaults.
+
+Config file format: JSON dictionary, e.g. {"MAX_SAMPLES": 100, "DEFAULT_TIMEOUT": 5.0}
+"""
+from __future__ import annotations
+import os
+import json
+from pathlib import Path
+from typing import Any, Dict, Optional
+
+root_proyect = os.path.dirname(os.path.abspath(__file__))
+
+DEFAULTS: Dict[str, Any] = {
+    "BUFR_RESOURCES_PATH": os.path.join(root_proyect, "io", "bufr", "bufr_resources"),
+}
+
+_config: Dict[str, Any] = DEFAULTS.copy()
+
+
+def _try_load_file(path: str) -> bool:
+    try:
+        with open(path, "r", encoding="utf8") as fh:
+            data = json.load(fh)
+        if isinstance(data, dict):
+            _config.update(data)
+            return True
+    except FileNotFoundError:
+        return False
+    except Exception:
+        # ignore parse errors / other I/O errors to keep loader robust
+        return False
+    return False
+
+
+def _auto_load() -> None:
+    # 1) explicit env var
+    env_path = os.environ.get("RADARLIB_CONFIG")
+    if env_path and _try_load_file(env_path):
+        return
+
+    # 2) package-local radarlib.json (src/radarlib/radarlib.json)
+    pkg_local = Path(__file__).resolve().parent / "radarlib.json"
+    if _try_load_file(str(pkg_local)):
+        return
+
+    # 3) project root candidate (one level up)
+    project_local = Path(__file__).resolve().parent.parent / "radarlib.json"
+    _try_load_file(str(project_local))
+
+
+_auto_load()
+
+
+def get(key: str, default: Any = None) -> Any:
+    return _config.get(key, default)
+
+
+# convenience attributes
+BUFR_RESOURCES_PATH: str = get("BUFR_RESOURCES_PATH")
+# MAX_SAMPLES: Optional[int] = get("MAX_SAMPLES")
+# DEFAULT_SAMPLE_VALUE: Any = get("DEFAULT_SAMPLE_VALUE")
+# DEFAULT_TIMEOUT: float = float(get("DEFAULT_TIMEOUT", DEFAULTS["DEFAULT_TIMEOUT"]))
+
+
+def reload(path: Optional[str] = None) -> None:
+    """Force reload configuration. If path is provided, try it first."""
+    global _config
+    _config = DEFAULTS.copy()
+    if path:
+        _try_load_file(path)
+    _auto_load()
