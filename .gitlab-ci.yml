@@ -19,7 +19,8 @@ before_script:
 lint:
   stage: lint
   script:
-    - pip install -e .[dev]
+    - pip install -e .
+    - pip install -r requirements-dev.txt
     - black --check src tests
     - flake8 src tests
   rules:
@@ -28,7 +29,8 @@ lint:
 unit_tests:
   stage: test
   script:
-    - pip install -e .[dev]
+    - pip install -e .
+    - pip install -r requirements-dev.txt
     - pytest -q -m "not integration" --junitxml=report-unit.xml
   artifacts:
     when: always
@@ -42,7 +44,8 @@ unit_tests:
 integration_tests:
   stage: integration
   script:
-    - pip install -e .[dev]
+    - pip install -e .
+    - pip install -r requirements-dev.txt
     - pytest -q -m integration --junitxml=report-integration.xml
   artifacts:
     when: always
