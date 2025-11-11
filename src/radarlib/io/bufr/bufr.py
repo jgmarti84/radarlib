@@ -33,7 +33,7 @@ class meta_t(Structure):
 
 
 @contextmanager
-def decbufr_library_context(root_resources: str):
+def decbufr_library_context(root_resources: str | None = None):
     """
     Context manager para cargar la librería C de decodificación BUFR.
 
@@ -102,7 +102,7 @@ def load_decbufr_library(root_resources: str) -> CDLL:
     return cdll.LoadLibrary(lib_path)
 
 
-def get_metadata(lib: CDLL, bufr_path: str, root_resources: str) -> Dict[str, Any]:
+def get_metadata(lib: CDLL, bufr_path: str, root_resources: str | None = None) -> Dict[str, Any]:
     """
     Extrae metadatos básicos del archivo BUFR mediante la función
     `get_meta_data` de la librería C cargada.
@@ -137,7 +137,7 @@ def get_metadata(lib: CDLL, bufr_path: str, root_resources: str) -> Dict[str, An
     }
 
 
-def get_elevations(lib: CDLL, bufr_path: str, root_resources: str, max_elev: int = 30) -> np.ndarray:
+def get_elevations(lib: CDLL, bufr_path: str, max_elev: int = 30, root_resources: str | None = None) -> np.ndarray:
     """
     Recupera las elevaciones de los barridos (fixed angles) desde la librería C.
 
@@ -161,7 +161,7 @@ def get_elevations(lib: CDLL, bufr_path: str, root_resources: str, max_elev: int
     return np.asarray(list(arr.contents))
 
 
-def get_raw_volume(lib: CDLL, bufr_path: str, root_resources: str, size: int) -> np.ndarray:
+def get_raw_volume(lib: CDLL, bufr_path: str, size: int, root_resources: str | None = None) -> np.ndarray:
     """
     Recupera el bloque de datos crudo (array de enteros) del archivo BUFR
     llamando a la función C correspondiente.
@@ -186,7 +186,7 @@ def get_raw_volume(lib: CDLL, bufr_path: str, root_resources: str, size: int) ->
     return np.asarray(list(raw.contents))
 
 
-def get_size_data(lib: CDLL, bufr_path: str, root_resources: str) -> int:
+def get_size_data(lib: CDLL, bufr_path: str, root_resources: str | None = None) -> int:
     """
     Llama a la función C que devuelve el tamaño del bloque de datos
     bruto del archivo BUFR.
@@ -527,7 +527,7 @@ def build_info_dict(meta_vol: dict, meta_sweeps: list[dict]) -> dict:
 
 def dec_bufr_file(
     bufr_filename: str,
-    root_resources: str = None,  # type: ignore
+    root_resources: str | None = None,
     logger_name: Optional[str] = None,
     parallel: bool = True,
 ) -> Tuple[Dict[str, Any], List[dict], np.ndarray, List[List[Any]]]:
@@ -570,8 +570,8 @@ def dec_bufr_file(
 
             # Extrae tamaño del volumen, datos crudos y elevaciones
             size_data = get_size_data(lib, bufr_filename, root_resources)
-            vol = get_raw_volume(lib, bufr_filename, root_resources, size=size_data)
-            elevs = get_elevations(lib, bufr_filename, root_resources, max_elev=vol[0])
+            vol = get_raw_volume(lib, bufr_filename, size_data, root_resources=root_resources)
+            elevs = get_elevations(lib, bufr_filename, max_elev=vol[0], root_resources=root_resources)
 
             # Encabezado de barridos + datos comprimidos
             nsweeps = int(vol[0])
@@ -643,10 +643,10 @@ def dec_bufr_file(
 
 def bufr_to_dict(
     bufr_filename: str,
-    root_resources: str | None = None,  # type: ignore
+    root_resources: str | None = None,
     logger_name: str | None = None,
     legacy: bool = False,
-) -> Optional[dict]:  # type: ignore
+) -> Optional[dict]:
     """
     Procesa un archivo BUFR y devuelve una representación en forma de diccionario
     lista para uso por otras partes del pipeline.
@@ -676,7 +676,7 @@ def bufr_to_dict(
         try:
             meta_vol, meta_sweeps, vol_data, run_log = dec_bufr_file(
                 bufr_filename=bufr_filename,
-                root_resources=root_resources,  # type: ignore[arg-type]
+                root_resources=root_resources,
                 logger_name=logger_name,
             )
 
@@ -709,22 +709,19 @@ def bufr_to_dict(
 
 
 if __name__ == "__main__":
-    # import time
 
-    bufr_resources_path = "./bufr_resources/"
-    # libs = load_decbufr_library(bufr_resources_path)
     bufr_fname = "AR5_1000_1_DBZH_20240101T000746Z.BUFR"
     path = "tests/data/bufr/"
-    # path = "./ftp_downloads/AR5_2024_01_01_00/5746/"
-    # filename = "AR5_1000_1_DBZH_20240101T005746Z.BUFR"
     bufr_path = os.path.join(path, bufr_fname)
     bufr_dict = bufr_to_dict(bufr_path, logger_name="bufr_process", legacy=False)
 
-    # metadata = get_metadata(libs, bufr_path, bufr_resources_path)
-    # size = get_size_data(libs, bufr_path, bufr_resources_path)
-    # vol = get_raw_volume(libs, bufr_path, bufr_resources_path, size)
-    # nsweeps = int(vol[0])
-    # elevations = get_elevations(libs, bufr_path, bufr_resources_path, max_elev=nsweeps)
-    # sw = parse_sweeps(vol, nsweeps, elevations)
-    # metadata, sweeps, vol_data, run_log = dec_bufr_file(bufr_path, root_resources=bufr_resources_path)
+    with decbufr_library_context() as libs:
+        metadata = get_metadata(libs, bufr_path)
+        size = get_size_data(libs, bufr_path)
+        vol = get_raw_volume(libs, bufr_path, size)
+        nsweeps = int(vol[0])
+        elevations = get_elevations(libs, bufr_path, max_elev=nsweeps)
+        sw = parse_sweeps(vol, nsweeps, elevations)
+
+    metadata, sweeps, vol_data, run_log = dec_bufr_file(bufr_path, logger_name="bufr_process")
     print("finished!")
