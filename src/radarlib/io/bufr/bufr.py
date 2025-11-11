@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from src.radarlib import config
+from radarlib import config
 
 
 class SweepConsistencyException(Exception):
@@ -713,8 +713,8 @@ if __name__ == "__main__":
 
     bufr_resources_path = "./bufr_resources/"
     # libs = load_decbufr_library(bufr_resources_path)
-    bufr_fname = "RMA11_0315_01_KDP_20251020T151109Z.BUFR"
-    path = "./bufr_downloads/RMA11/"
+    bufr_fname = "AR5_1000_1_DBZH_20240101T000746Z.BUFR"
+    path = "tests/data/bufr/"
     # path = "./ftp_downloads/AR5_2024_01_01_00/5746/"
     # filename = "AR5_1000_1_DBZH_20240101T005746Z.BUFR"
     bufr_path = os.path.join(path, bufr_fname)
