@@ -1,9 +1,3 @@
-# filepath: /radarlib/radarlib/requirements-dev.txt
+-r requirements.txt
 pytest
-tox
-black
-flake8
-mypy
-ipython
-jupyter
 pre-commit
