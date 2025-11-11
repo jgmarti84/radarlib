@@ -15,21 +15,20 @@ class SweepConsistencyException(Exception):
 
 
 class point_t(Structure):
-    _fields_ = [
-        ("lat",  c_double),
-        ("lon",  c_double)]
+    _fields_ = [("lat", c_double), ("lon", c_double)]
 
 
 class meta_t(Structure):
     _fields_ = [
-        ("year",  c_int),
+        ("year", c_int),
         ("month", c_int),
-        ("day",   c_int),
-        ("hour",  c_int),
-        ("min",   c_int),
+        ("day", c_int),
+        ("hour", c_int),
+        ("min", c_int),
         ("radar", point_t),
-        ("radar_height", c_double)]
-    
+        ("radar_height", c_double),
+    ]
+
 
 @contextmanager
 def decbufr_library_context(root_resources: str):
@@ -68,19 +67,19 @@ def bufr_name_metadata(bufr_filename: str) -> dict:
     Raises:
         ValueError: Si el nombre no cumple el patrón esperado.
     """
-    filename = bufr_filename.split('/')[-1]
-    base_name = filename.split('.')[0]
-    parts = base_name.split('_')
+    filename = bufr_filename.split("/")[-1]
+    base_name = filename.split(".")[0]
+    parts = base_name.split("_")
     if len(parts) != 5:
         raise ValueError(f"Unexpected BUFR filename format: {bufr_filename}")
-    
+
     return {
         "radar_name": parts[0],
         "estrategia_nombre": parts[1],
         "estrategia_nvol": parts[2],
         "tipo_producto": parts[3],
-        "filename": filename
-        }
+        "filename": filename,
+    }
 
 
 def load_decbufr_library(root_resources: str) -> CDLL:
@@ -97,7 +96,7 @@ def load_decbufr_library(root_resources: str) -> CDLL:
     """
     if root_resources is None:
         root_resources = config.BUFR_RESOURCES_PATH
-    lib_path = os.path.join(root_resources, 'dynamic_library/libdecbufr.so')
+    lib_path = os.path.join(root_resources, "dynamic_library/libdecbufr.so")
     return cdll.LoadLibrary(lib_path)
 
 
@@ -119,12 +118,11 @@ def get_metadata(lib: CDLL, bufr_path: str, root_resources: str) -> Dict[str, An
         root_resources = config.BUFR_RESOURCES_PATH
     get_meta_data = lib.get_meta_data
     get_meta_data.argtypes = [c_char_p, c_char_p]
-    
+
     get_meta_data.restype = POINTER(meta_t)
 
     tables_path = os.path.join(root_resources, "bufr_tables")
-    metadata = get_meta_data(bufr_path.encode('utf-8'),
-                             tables_path.encode('utf-8'))
+    metadata = get_meta_data(bufr_path.encode("utf-8"), tables_path.encode("utf-8"))
     return {
         "year": metadata.contents.year,
         "month": metadata.contents.month,
@@ -137,7 +135,9 @@ def get_metadata(lib: CDLL, bufr_path: str, root_resources: str) -> Dict[str, An
     }
 
 
-def get_elevations(lib: CDLL, bufr_path: str, root_resources: str, max_elev: int = 30) -> np.ndarray:
+def get_elevations(
+    lib: CDLL, bufr_path: str, root_resources: str, max_elev: int = 30
+) -> np.ndarray:
     """
     Recupera las elevaciones de los barridos (fixed angles) desde la librería C.
 
@@ -161,7 +161,9 @@ def get_elevations(lib: CDLL, bufr_path: str, root_resources: str, max_elev: int
     return np.asarray(list(arr.contents))
 
 
-def get_raw_volume(lib: CDLL, bufr_path: str, root_resources: str, size: int) -> np.ndarray:
+def get_raw_volume(
+    lib: CDLL, bufr_path: str, root_resources: str, size: int
+) -> np.ndarray:
     """
     Recupera el bloque de datos crudo (array de enteros) del archivo BUFR
     llamando a la función C correspondiente.
@@ -227,51 +229,69 @@ def parse_sweeps(vol: np.ndarray, nsweeps: int, elevs: np.ndarray) -> list[dict]
     u = 1
     for sweep_idx in range(nsweeps):
         # parse fixed header block (13–15 ints)
-        year_ini, month_ini, day_ini, hour_ini, min_ini, sec_ini, \
-        year, month, day, hour, minute, sec, product_type = vol[u:u+13]
+        (
+            year_ini,
+            month_ini,
+            day_ini,
+            hour_ini,
+            min_ini,
+            sec_ini,
+            year,
+            month,
+            day,
+            hour,
+            minute,
+            sec,
+            product_type,
+        ) = vol[u: u + 13]
         u += 13
 
         elevation = elevs[sweep_idx] if sweep_idx < len(elevs) else None
         u += 1
-        ngates, range_size, range_offset, nrays, azimuth = vol[u:u+5]
+        ngates, range_size, range_offset, nrays, azimuth = vol[u: u + 5]
         u += 5
 
         # skip optional duplicated type/product etc.
         # Example from legacy: u = u+2
         u += 3
 
-        multi_pri = vol[u]; u += 1
+        multi_pri = vol[u]
+        u += 1
         comp_chunks = []
         for _ in range(multi_pri):
-            multi_sec = vol[u]; u += 1
-            data_chunk = vol[u:u+multi_sec]; u += multi_sec
+            multi_sec = vol[u]
+            u += 1
+            data_chunk = vol[u: u + multi_sec]
+            u += multi_sec
             # vectorized replace
             data_chunk = np.where(data_chunk == 99999, 255, data_chunk)
             comp_chunks.append(data_chunk)
         compress_data = bytearray(np.concatenate(comp_chunks).astype(np.uint8))
 
-        sweeps.append({
-            "year_ini": year_ini,
-            "month_ini": month_ini,
-            "day_ini": day_ini,
-            "hour_ini": hour_ini,
-            "min_ini": min_ini,
-            "sec_ini": sec_ini,
-            "year": year,
-            "month": month,
-            "day": day,
-            "hour": hour,
-            "min": minute,
-            "sec": sec,
-            "product_type": product_type,
-            "elevation": elevation,
-            "ngates": ngates,
-            "range_size": range_size,
-            "range_offset": range_offset,
-            "nrays": nrays,
-            "antenna_beam_az": azimuth,
-            "compress_data": compress_data
-        })
+        sweeps.append(
+            {
+                "year_ini": year_ini,
+                "month_ini": month_ini,
+                "day_ini": day_ini,
+                "hour_ini": hour_ini,
+                "min_ini": min_ini,
+                "sec_ini": sec_ini,
+                "year": year,
+                "month": month,
+                "day": day,
+                "hour": hour,
+                "min": minute,
+                "sec": sec,
+                "product_type": product_type,
+                "elevation": elevation,
+                "ngates": ngates,
+                "range_size": range_size,
+                "range_offset": range_offset,
+                "nrays": nrays,
+                "antenna_beam_az": azimuth,
+                "compress_data": compress_data,
+            }
+        )
     return sweeps
 
 
@@ -294,17 +314,19 @@ def decompress_sweep(sweep: dict) -> np.ndarray:
     # Descartamos barridos con ngates > 8400
     if sweep["ngates"] > 8400:
         raise SweepConsistencyException(f"Barrido con ngates > 8400: {sweep['ngates']}")
-    
+
     dec_data = zlib.decompress(memoryview(sweep["compress_data"]))
     arr = np.frombuffer(dec_data, dtype=np.float64)
 
     # Enmascarado de valores faltantes
-    arr = np.ma.masked_equal(arr, -1.797693134862315708e+308)
+    arr = np.ma.masked_equal(arr, -1.797693134862315708e308)
 
     # Reordenar a 2D (nrays, ngates)
     expected = sweep["nrays"] * sweep["ngates"]
     if arr.size != expected:
-        raise ValueError(f"Data de barrido inconsistente: obtenido {arr.size}, esperado {expected}")
+        raise ValueError(
+            f"Data de barrido inconsistente: obtenido {arr.size}, esperado {expected}"
+        )
 
     return arr.reshape((sweep["nrays"], sweep["ngates"]))
 
@@ -359,10 +381,14 @@ def validate_sweeps_df(sweeps_df: pd.DataFrame) -> pd.DataFrame:
     Raises:
         AssertionError: Si se detecta inconsistencia que hace el volumen no soportado.
     """
-    assert sweeps_df['nrayos'].nunique() == 1, "Número de rayos inconsistente entre sweeps"
-    assert sweeps_df['gate_size'].nunique() == 1, "Gate size inconsistente entre sweeps"
-    max_offset = sweeps_df['gate_offset'].iloc[0] // 2
-    assert all(abs(sweeps_df['gate_offset'] - sweeps_df['gate_offset'].iloc[0]) <= max_offset), "Desplazamiento excesivo en gate_offset entre sweeps"
+    assert (
+        sweeps_df["nrayos"].nunique() == 1
+    ), "Número de rayos inconsistente entre sweeps"
+    assert sweeps_df["gate_size"].nunique() == 1, "Gate size inconsistente entre sweeps"
+    max_offset = sweeps_df["gate_offset"].iloc[0] // 2
+    assert all(
+        abs(sweeps_df["gate_offset"] - sweeps_df["gate_offset"].iloc[0]) <= max_offset
+    ), "Desplazamiento excesivo en gate_offset entre sweeps"
 
     return sweeps_df
 
@@ -403,20 +429,29 @@ def build_metadata(filename: str, info: dict) -> dict:
         "institution": "SiNaRaMe",
         "n_gates_vary": "-",
         "primary_axis": "-",
-        "created": (f"Fecha:{dia_sweep}/"
-                    f"{mes_sweep}/"
-                    f"{ano_sweep} "
-                    f"Hora:{hora_sweep}:"
-                    f"{min_sweep}:"
-                    f"{seg_sweep}"),
+        "created": (
+            f"Fecha:{dia_sweep}/"
+            f"{mes_sweep}/"
+            f"{ano_sweep} "
+            f"Hora:{hora_sweep}:"
+            f"{min_sweep}:"
+            f"{seg_sweep}"
+        ),
         "scan_name": "-",
-        # "author": "Grupo Radar Cordoba (GRC) – Extractor/Conversor de Datos de Radar ",
         "author": "Grupo Radar Cordoba (GRC) - Extractor/Conversor de Datos de Radar ",
         "Conventions": "-",
         "platform_type": "Base Fija",
         "history": "-",
-        "filename": (filename.split("_")[0]+"_"+filename.split("_")[1]+"_"+
-                     filename.split("_")[2]+"_"+filename.split("_")[4].split(".")[0]+".nc"),
+        "filename": (
+            filename.split("_")[0]
+            + "_"
+            + filename.split("_")[1]
+            + "_"
+            + filename.split("_")[2]
+            + "_"
+            + filename.split("_")[4].split(".")[0]
+            + ".nc"
+        ),
     }
 
 
@@ -449,7 +484,6 @@ def build_info_dict(meta_vol: dict, meta_sweeps: list[dict]) -> dict:
         },
         "tipo_producto": meta_vol["tipo_producto"],
         "filename": meta_vol["filename"],
-
         # .....................................................................
         # Carga de Info General del Volumen
         # .....................................................................
@@ -468,18 +502,27 @@ def build_info_dict(meta_vol: dict, meta_sweeps: list[dict]) -> dict:
     # Carga de Info de Barridos
     # .....................................................................
     drop_cols = ["data", "compress_data", "product_type"]
-    sweeps_df = pd.DataFrame.from_dict(meta_sweeps).drop(columns=drop_cols) #type: ignore
+    sweeps_df = pd.DataFrame.from_dict(meta_sweeps).drop(columns=drop_cols)  # type: ignore
     sweeps_df = sweeps_df.rename(
         columns={
-            "year_ini": "ano_sweep_ini", "year": "ano_sweep",
-            "month_ini": "mes_sweep_ini", "month": "mes_sweep",
-            "day_ini": "dia_sweep_ini", "day": "dia_sweep",
-            "hour_ini": "hora_sweep_ini", "hour": "hora_sweep",
-            "min_ini": "min_sweep_ini", "min": "min_sweep",
-            "sec_ini": "seg_sweep_ini", "sec": "seg_sweep",
-            "elevation": "elevaciones", "ngates": "ngates",
-            "range_size": "gate_size", "range_offset": "gate_offset",
-            "nrays": "nrayos", "antenna_beam_az": "rayo_inicial"
+            "year_ini": "ano_sweep_ini",
+            "year": "ano_sweep",
+            "month_ini": "mes_sweep_ini",
+            "month": "mes_sweep",
+            "day_ini": "dia_sweep_ini",
+            "day": "dia_sweep",
+            "hour_ini": "hora_sweep_ini",
+            "hour": "hora_sweep",
+            "min_ini": "min_sweep_ini",
+            "min": "min_sweep",
+            "sec_ini": "seg_sweep_ini",
+            "sec": "seg_sweep",
+            "elevation": "elevaciones",
+            "ngates": "ngates",
+            "range_size": "gate_size",
+            "range_offset": "gate_offset",
+            "nrays": "nrayos",
+            "antenna_beam_az": "rayo_inicial",
         }
     )
 
@@ -493,11 +536,11 @@ def build_info_dict(meta_vol: dict, meta_sweeps: list[dict]) -> dict:
 
 
 def dec_bufr_file(
-        bufr_filename: str,
-        root_resources: str = None, #type: ignore
-        logger_name: Optional[str] = None,
-        parallel: bool = True
-    ) -> Tuple[Dict[str, Any], List[dict], np.ndarray, List[List[Any]]]:
+    bufr_filename: str,
+    root_resources: str = None,  # type: ignore
+    logger_name: Optional[str] = None,
+    parallel: bool = True,
+) -> Tuple[Dict[str, Any], List[dict], np.ndarray, List[List[Any]]]:
     """
     Decodifica un archivo BUFR usando la librería C y reconstruye:
     - metadatos del volumen (meta_vol),
@@ -523,8 +566,8 @@ def dec_bufr_file(
         No se modifica la lógica de validación existente; las excepciones
         se registran en el logger y se propagan cuando corresponda.
     """
-    filename = bufr_filename.split('/')[-1]
-    logger = logging.getLogger((logger_name or __name__) + '.' + filename.split('_')[0])
+    filename = bufr_filename.split("/")[-1]
+    logger = logging.getLogger((logger_name or __name__) + "." + filename.split("_")[0])
 
     run_log = []
 
@@ -548,20 +591,29 @@ def dec_bufr_file(
                     sw["data"] = decompress_sweep(sw)
                     return sw, None
                 except SweepConsistencyException as e:
-                    vol_name = bufr_filename.split('/')[-1].split('.')[0][:-5]
+                    vol_name = bufr_filename.split("/")[-1].split(".")[0][:-5]
                     product_type = sw.get("product_type", "N/A")
                     message = f"{vol_name}: Se descarta barrido inconsistente ({product_type} / Sw: {idx}) (ngates fuera de limites)"
                     logger.warning(message)
                     return None, [2, message]
                 except Exception as e:
-                    logger.warning(f"Descartado barrido inconsistente en sweep {idx}: {e}")
-                    return None, [2, f"Descartado barrido inconsistente en sweep {idx}: {e}"]
+                    logger.warning(
+                        f"Descartado barrido inconsistente en sweep {idx}: {e}"
+                    )
+                    return None, [
+                        2,
+                        f"Descartado barrido inconsistente en sweep {idx}: {e}",
+                    ]
 
             results = []
             if parallel:
                 from concurrent.futures import ThreadPoolExecutor, as_completed
+
                 with ThreadPoolExecutor() as executor:
-                    futures = {executor.submit(decompress_wrapper, sw, idx): idx for idx, sw in enumerate(sweeps)}
+                    futures = {
+                        executor.submit(decompress_wrapper, sw, idx): idx
+                        for idx, sw in enumerate(sweeps)
+                    }
                     for future in as_completed(futures):
                         sw, log_entry = future.result()
                         if sw is not None:
@@ -596,9 +648,9 @@ def dec_bufr_file(
         logger.error(f"Error en la decodificacion del archivo BUFR: {e}", exc_info=True)
         run_log.append([3, str(e)])
         raise ValueError(f"Error en la decodificacion del archivo BUFR: {e}")
-    
 
-def bufr_to_dict(bufr_filename: str, root_resources: str = None, logger_name: str = None, legacy=False) -> Optional[dict]: #type: ignore
+
+def bufr_to_dict(bufr_filename: str, root_resources: str = None, logger_name: str = None, legacy=False) -> Optional[dict]:  # type: ignore
     """
     Procesa un archivo BUFR y devuelve una representación en forma de diccionario
     lista para uso por otras partes del pipeline.
@@ -617,27 +669,37 @@ def bufr_to_dict(bufr_filename: str, root_resources: str = None, logger_name: st
         (el error queda registrado en el logger).
     """
     # TODO: include a check for input type. bufr_filename should be str or Path and not a list nor dict. Potentially include a fallback in case it's a list of strings
-    filename = bufr_filename.split('/')[-1]
-    logger_local = logging.getLogger((logger_name or __name__) + '.' + filename.split('_')[0])
+    filename = bufr_filename.split("/")[-1]
+    logger_local = logging.getLogger(
+        (logger_name or __name__) + "." + filename.split("_")[0]
+    )
     # Implement retry/backoff for transient failures (e.g., I/O, C-library transient errors)
     max_attempts = 3
     base_delay = 0.5
     for attempt in range(1, max_attempts + 1):
         try:
-            meta_vol, meta_sweeps, vol_data, run_log = dec_bufr_file(bufr_filename=bufr_filename, root_resources=root_resources, logger_name=logger_name)
+            meta_vol, meta_sweeps, vol_data, run_log = dec_bufr_file(
+                bufr_filename=bufr_filename,
+                root_resources=root_resources,
+                logger_name=logger_name,
+            )
 
             vol: Dict[str, Any] = {"data": vol_data}
 
             vol["info"] = build_info_dict(meta_vol, meta_sweeps)
             if legacy:
-                vol["info"] = dict(vol["info"], **vol["info"]["sweeps"].to_dict(orient="list"))
+                vol["info"] = dict(
+                    vol["info"], **vol["info"]["sweeps"].to_dict(orient="list")
+                )
                 del vol["info"]["sweeps"]
 
             return vol
 
         except Exception as e:
             # Log with local logger including attempt count
-            logger_local.warning(f"Attempt {attempt}/{max_attempts} failed for {bufr_filename}: {e}")
+            logger_local.warning(
+                f"Attempt {attempt}/{max_attempts} failed for {bufr_filename}: {e}"
+            )
             if attempt < max_attempts:
                 # exponential backoff with jitter
                 delay = base_delay * (2 ** (attempt - 1))
@@ -645,17 +707,20 @@ def bufr_to_dict(bufr_filename: str, root_resources: str = None, logger_name: st
                 time.sleep(delay)
                 continue
             else:
-                logger_local.error("Error en bufr_to_dict (final): %s", e, exc_info=True)
+                logger_local.error(
+                    "Error en bufr_to_dict (final): %s", e, exc_info=True
+                )
                 # attach to run_log for compatibility (if exists)
                 try:
                     run_log.append([3, str(e)])
                 except Exception:
                     pass
                 return None
-            
+
 
 if __name__ == "__main__":
-    import time
+    # import time
+
     bufr_resources_path = "./bufr_resources/"
     # libs = load_decbufr_library(bufr_resources_path)
     bufr_fname = "RMA11_0315_01_KDP_20251020T151109Z.BUFR"
@@ -664,7 +729,7 @@ if __name__ == "__main__":
     # filename = "AR5_1000_1_DBZH_20240101T005746Z.BUFR"
     bufr_path = os.path.join(path, bufr_fname)
     bufr_dict = bufr_to_dict(bufr_path, logger_name="bufr_process", legacy=False)
-    
+
     # metadata = get_metadata(libs, bufr_path, bufr_resources_path)
     # size = get_size_data(libs, bufr_path, bufr_resources_path)
     # vol = get_raw_volume(libs, bufr_path, bufr_resources_path, size)

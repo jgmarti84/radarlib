@@ -7,6 +7,7 @@ Load order:
 
 Config file format: JSON dictionary, e.g. {"MAX_SAMPLES": 100, "DEFAULT_TIMEOUT": 5.0}
 """
+
 from __future__ import annotations
 import os
 import json
