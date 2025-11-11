@@ -137,9 +137,7 @@ def get_metadata(lib: CDLL, bufr_path: str, root_resources: str) -> Dict[str, An
     }
 
 
-def get_elevations(
-    lib: CDLL, bufr_path: str, root_resources: str, max_elev: int = 30
-) -> np.ndarray:
+def get_elevations(lib: CDLL, bufr_path: str, root_resources: str, max_elev: int = 30) -> np.ndarray:
     """
     Recupera las elevaciones de los barridos (fixed angles) desde la librería C.
 
@@ -163,9 +161,7 @@ def get_elevations(
     return np.asarray(list(arr.contents))
 
 
-def get_raw_volume(
-    lib: CDLL, bufr_path: str, root_resources: str, size: int
-) -> np.ndarray:
+def get_raw_volume(lib: CDLL, bufr_path: str, root_resources: str, size: int) -> np.ndarray:
     """
     Recupera el bloque de datos crudo (array de enteros) del archivo BUFR
     llamando a la función C correspondiente.
@@ -326,9 +322,7 @@ def decompress_sweep(sweep: dict) -> np.ndarray:
     # Reordenar a 2D (nrays, ngates)
     expected = sweep["nrays"] * sweep["ngates"]
     if arr.size != expected:
-        raise ValueError(
-            f"Data de barrido inconsistente: obtenido {arr.size}, esperado {expected}"
-        )
+        raise ValueError(f"Data de barrido inconsistente: obtenido {arr.size}, esperado {expected}")
 
     return arr.reshape((sweep["nrays"], sweep["ngates"]))
 
@@ -383,9 +377,7 @@ def validate_sweeps_df(sweeps_df: pd.DataFrame) -> pd.DataFrame:
     Raises:
         AssertionError: Si se detecta inconsistencia que hace el volumen no soportado.
     """
-    assert (
-        sweeps_df["nrayos"].nunique() == 1
-    ), "Número de rayos inconsistente entre sweeps"
+    assert sweeps_df["nrayos"].nunique() == 1, "Número de rayos inconsistente entre sweeps"
     assert sweeps_df["gate_size"].nunique() == 1, "Gate size inconsistente entre sweeps"
     max_offset = sweeps_df["gate_offset"].iloc[0] // 2
     assert all(
@@ -432,12 +424,7 @@ def build_metadata(filename: str, info: dict) -> dict:
         "n_gates_vary": "-",
         "primary_axis": "-",
         "created": (
-            f"Fecha:{dia_sweep}/"
-            f"{mes_sweep}/"
-            f"{ano_sweep} "
-            f"Hora:{hora_sweep}:"
-            f"{min_sweep}:"
-            f"{seg_sweep}"
+            f"Fecha:{dia_sweep}/" f"{mes_sweep}/" f"{ano_sweep} " f"Hora:{hora_sweep}:" f"{min_sweep}:" f"{seg_sweep}"
         ),
         "scan_name": "-",
         "author": "Grupo Radar Cordoba (GRC) - Extractor/Conversor de Datos de Radar ",
@@ -605,9 +592,7 @@ def dec_bufr_file(
                     logger.warning(message)
                     return None, [2, message]
                 except Exception as exc:
-                    logger.warning(
-                        f"Descartado barrido inconsistente en sweep {idx}: {exc}"
-                    )
+                    logger.warning(f"Descartado barrido inconsistente en sweep {idx}: {exc}")
                     return None, [
                         2,
                         f"Descartado barrido inconsistente en sweep {idx}: {exc}",
@@ -618,10 +603,7 @@ def dec_bufr_file(
                 from concurrent.futures import ThreadPoolExecutor, as_completed
 
                 with ThreadPoolExecutor() as executor:
-                    futures = {
-                        executor.submit(decompress_wrapper, sw, idx): idx
-                        for idx, sw in enumerate(sweeps)
-                    }
+                    futures = {executor.submit(decompress_wrapper, sw, idx): idx for idx, sw in enumerate(sweeps)}
                     for future in as_completed(futures):
                         sw, log_entry = future.result()
                         if sw is not None:
@@ -686,9 +668,7 @@ def bufr_to_dict(
     # and not a list nor dict. Potentially include a fallback in case it's a
     # list of strings
     filename = bufr_filename.split("/")[-1]
-    logger_local = logging.getLogger(
-        (logger_name or __name__) + "." + filename.split("_")[0]
-    )
+    logger_local = logging.getLogger((logger_name or __name__) + "." + filename.split("_")[0])
     # Implement retry/backoff for transient failures (e.g., I/O, C-library transient errors)
     max_attempts = 3
     base_delay = 0.5
@@ -704,18 +684,14 @@ def bufr_to_dict(
 
             vol["info"] = build_info_dict(meta_vol, meta_sweeps)
             if legacy:
-                vol["info"] = dict(
-                    vol["info"], **vol["info"]["sweeps"].to_dict(orient="list")
-                )
+                vol["info"] = dict(vol["info"], **vol["info"]["sweeps"].to_dict(orient="list"))
                 del vol["info"]["sweeps"]
 
             return vol
 
         except Exception as e:
             # Log with local logger including attempt count
-            logger_local.warning(
-                f"Attempt {attempt}/{max_attempts} failed for {bufr_filename}: {e}"
-            )
+            logger_local.warning(f"Attempt {attempt}/{max_attempts} failed for {bufr_filename}: {e}")
             if attempt < max_attempts:
                 # exponential backoff with jitter
                 delay = base_delay * (2 ** (attempt - 1))
@@ -723,9 +699,7 @@ def bufr_to_dict(
                 time.sleep(delay)
                 continue
             else:
-                logger_local.error(
-                    "Error en bufr_to_dict (final): %s", e, exc_info=True
-                )
+                logger_local.error("Error en bufr_to_dict (final): %s", e, exc_info=True)
                 # attach to run_log for compatibility (if exists)
                 try:
                     run_log.append([3, str(e)])

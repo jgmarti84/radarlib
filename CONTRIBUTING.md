@@ -67,6 +67,13 @@ pre-commit install
 pre-commit run --all-files  # run once for existing files
 ```
 
+Note: pre-commit hooks like `isort` and `black` require the corresponding tools to be available.
+Install development dependencies first with:
+
+```bash
+pip install -r requirements-dev.txt
+```
+
 This installs hooks defined in `.pre-commit-config.yaml` (Black, isort, flake8, and basic checks).
 
 ## Adding tests

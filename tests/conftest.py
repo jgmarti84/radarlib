@@ -1,6 +1,6 @@
 import pathlib
-import pytest
 
+import pytest
 
 HERE = pathlib.Path(__file__).parent
 
@@ -14,8 +14,9 @@ def bufr_test_dir():
 @pytest.fixture
 def sample_sweep_bytes():
     """Return a small synthetic sweep bytes compressed with zlib."""
-    import numpy as np
     import zlib
+
+    import numpy as np
 
     nrays, ngates = 4, 3
     arr = (np.arange(nrays * ngates, dtype=np.float64) + 0.5).reshape((nrays, ngates))

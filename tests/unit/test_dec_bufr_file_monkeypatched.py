@@ -24,18 +24,14 @@ def make_fake_meta():
 
 def test_dec_bufr_file_monkeypatched(monkeypatch, sample_sweep_bytes):
     # Patch low-level functions used by dec_bufr_file
-    monkeypatch.setattr(
-        bufr_mod, "get_metadata", lambda lib, path, root: make_fake_meta()
-    )
+    monkeypatch.setattr(bufr_mod, "get_metadata", lambda lib, path, root: make_fake_meta())
     monkeypatch.setattr(bufr_mod, "get_size_data", lambda lib, path, root: 0)
     monkeypatch.setattr(
         bufr_mod,
         "get_raw_volume",
         lambda lib, path, root, size: np.array([1], dtype=int),
     )
-    monkeypatch.setattr(
-        bufr_mod, "get_elevations", lambda lib, path, root, max_elev=30: np.array([0.5])
-    )
+    monkeypatch.setattr(bufr_mod, "get_elevations", lambda lib, path, root, max_elev=30: np.array([0.5]))
 
     sweep = dict(sample_sweep_bytes)
     sweep.update(
@@ -62,8 +58,8 @@ def test_dec_bufr_file_monkeypatched(monkeypatch, sample_sweep_bytes):
     # <RADAR>_<ESTRATEGIA>_<NVOL>_<TIPO>_<TIMESTAMP>.BUFR
     test_filename = "RMA11_0315_01_KDP_20251020T151109Z.BUFR"
     meta_vol, sweeps, vol_data, run_log = bufr_mod.dec_bufr_file(
-        test_filename, root_resources=None, logger_name="test", parallel=False
-    )  # type: ignore[arg-type]
+        test_filename, root_resources=None, logger_name="test", parallel=False  # type: ignore[arg-type]
+    )
     assert isinstance(meta_vol, dict)
     assert vol_data.ndim == 2
     assert len(sweeps) == meta_vol["nsweeps"]
