@@ -31,7 +31,7 @@ pip install -r requirements.txt
 Here is a simple example of how to use My Python Library:
 
 ```python
-from my_python_library import core
+from radarlib import core
 
 # Example usage of a function from the library
 result = core.some_function()

@@ -1,16 +1,57 @@
-stages:
-  - test
+image: python:3.11
 
-test:
-  image: python:3.12
-  stage: test
-  before_script:
-    - apt-get update && apt-get install -y --no-install-recommends git
+stages:
+  - lint
+  - test
+  - integration
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+cache:
+  paths:
+    - .cache/pip/
+
+before_script:
+  - python -V
+  - pip install --upgrade pip
+
+lint:
+  stage: lint
   script:
-    - python --version
-    - python -m venv .venv
-    - . .venv/bin/activate
-    - python -m pip install --upgrade pip setuptools wheel
-    - python -m pip install -e ".[dev]"
-    - python -m pytest -q
-  tags: []
+    - pip install -e .[dev]
+    - black --check src tests
+    - flake8 src tests
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "merge_request_event"
+
+unit_tests:
+  stage: test
+  script:
+    - pip install -e .[dev]
+    - pytest -q -m "not integration" --junitxml=report-unit.xml
+  artifacts:
+    when: always
+    reports:
+      junit: report-unit.xml
+    paths:
+      - report-unit.xml
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "merge_request_event"
+
+integration_tests:
+  stage: integration
+  script:
+    - pip install -e .[dev]
+    - pytest -q -m integration --junitxml=report-integration.xml
+  artifacts:
+    when: always
+    reports:
+      junit: report-integration.xml
+    paths:
+      - report-integration.xml
+  rules:
+    # Run only when explicitly requested (manual) or when RUN_INTEGRATION variable is set to "true"
+    - if: '$RUN_INTEGRATION == "true"'
+      when: always
+    - when: manual
