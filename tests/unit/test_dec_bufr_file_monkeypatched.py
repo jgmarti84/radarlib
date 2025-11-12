@@ -24,14 +24,14 @@ def make_fake_meta():
 
 def test_dec_bufr_file_monkeypatched(monkeypatch, sample_sweep_bytes):
     # Patch low-level functions used by dec_bufr_file
-    monkeypatch.setattr(bufr_mod, "get_metadata", lambda lib, path, root: make_fake_meta())
-    monkeypatch.setattr(bufr_mod, "get_size_data", lambda lib, path, root: 0)
+    monkeypatch.setattr(bufr_mod, "get_metadata", lambda lib, path, root_resources=None: make_fake_meta())
+    monkeypatch.setattr(bufr_mod, "get_size_data", lambda lib, path, root_resources=None: 0)
     monkeypatch.setattr(
         bufr_mod,
         "get_raw_volume",
-        lambda lib, path, root, size: np.array([1], dtype=int),
+        lambda lib, path, size, root_resources=None: np.array([1], dtype=int),
     )
-    monkeypatch.setattr(bufr_mod, "get_elevations", lambda lib, path, root, max_elev=30: np.array([0.5]))
+    monkeypatch.setattr(bufr_mod, "get_elevations", lambda lib, path, max_elev=30, root_resources=None: np.array([0.5]))
 
     sweep = dict(sample_sweep_bytes)
     sweep.update(
