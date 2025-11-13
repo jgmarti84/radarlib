@@ -515,3 +515,156 @@ def plot_multiple_fields(
             continue
 
     return results
+
+
+def export_fields_to_geotiff(
+    radar: Radar,
+    fields: List[str],
+    output_base_path: str,
+    sweep: Optional[int] = None,
+    crs: str = "EPSG:4326",
+) -> dict:
+    """
+    Export radar fields as georeferenced GeoTIFF files.
+
+    This function saves radar data with full geographic referencing and
+    geotransform information for use in GIS applications.
+
+    Parameters
+    ----------
+    radar : Radar
+        PyART radar object
+    fields : list of str
+        List of field names to export
+    output_base_path : str
+        Base directory for output GeoTIFF files
+    sweep : int, optional
+        Sweep index to export. If None, uses 0.
+    crs : str, optional
+        Coordinate reference system (default: "EPSG:4326" for WGS84)
+
+    Returns
+    -------
+    results : dict
+        Dictionary mapping field name to output file path for successful exports.
+        Fields that failed are excluded.
+
+    Examples
+    --------
+    >>> # Export as GeoTIFF with geographic coordinates
+    >>> results = export_fields_to_geotiff(
+    ...     radar,
+    ...     ['DBZH', 'VRAD', 'KDP'],
+    ...     'output_geotiff/',
+    ... )
+    >>> print(f"Exported {len(results)} fields")
+
+    >>> # Use a different coordinate system
+    >>> results = export_fields_to_geotiff(
+    ...     radar,
+    ...     ['RHOHV', 'ZDR'],
+    ...     'output/',
+    ...     crs="EPSG:32720"  # UTM Zone 20S
+    ... )
+    """
+    try:
+        from radarlib.io.pyart.radar_geotiff_exporter import save_multiple_fields_to_geotiff
+    except ImportError:
+        raise ImportError(
+            "radar_geotiff_exporter module not found. " "Make sure rasterio is installed: pip install rasterio"
+        )
+
+    if sweep is None:
+        sweep = 0
+
+    results = save_multiple_fields_to_geotiff(
+        radar,
+        fields,
+        output_base_path,
+        sweep=sweep,
+        crs=crs,
+    )
+
+    return results
+
+
+def export_fields_to_multi_format(
+    radar: Radar,
+    fields: List[str],
+    output_base_path: str,
+    formats: Optional[List[str]] = None,
+    sweep: Optional[int] = None,
+    config: Optional[RadarPlotConfig] = None,
+    field_configs: Optional[dict] = None,
+) -> dict:
+    """
+    Export radar fields to multiple formats (PNG, GeoTIFF, NetCDF).
+
+    This is a convenience function for batch exporting to multiple output formats.
+
+    Parameters
+    ----------
+    radar : Radar
+        PyART radar object
+    fields : list of str
+        List of field names to export
+    output_base_path : str
+        Base directory for all output files
+    formats : list of str, optional
+        Output formats: "png", "geotiff", "netcdf". Default: ["png", "geotiff"]
+    sweep : int, optional
+        Sweep index for PNG and GeoTIFF. If None, uses field defaults.
+    config : RadarPlotConfig, optional
+        Plot configuration for PNG output
+    field_configs : dict, optional
+        Per-field plot configurations for PNG output
+
+    Returns
+    -------
+    results : dict
+        Dictionary with format keys containing output file paths
+
+    Examples
+    --------
+    >>> results = export_fields_to_multi_format(
+    ...     radar,
+    ...     ['DBZH', 'VRAD'],
+    ...     'output/',
+    ...     formats=['png', 'geotiff']
+    ... )
+    >>> print(results)
+    {'png': {'DBZH': 'output/png/...', ...}, 'geotiff': {'DBZH': 'output/geotiff/...', ...}}
+    """
+    if formats is None:
+        formats = ["png", "geotiff"]
+
+    results = {}
+
+    for fmt in formats:
+        if fmt.lower() == "png":
+            output_dir = os.path.join(output_base_path, "png")
+            png_results = plot_multiple_fields(
+                radar, fields, output_dir, sweep=sweep, config=config, field_configs=field_configs
+            )
+            results["png"] = png_results
+            logger.info(f"Exported {len(png_results)} fields to PNG")
+
+        elif fmt.lower() == "geotiff":
+            output_dir = os.path.join(output_base_path, "geotiff")
+            geotiff_results = export_fields_to_geotiff(radar, fields, output_dir, sweep=sweep)
+            results["geotiff"] = geotiff_results
+            logger.info(f"Exported {len(geotiff_results)} fields to GeoTIFF")
+
+        elif fmt.lower() == "netcdf":
+            from radarlib.io.pyart.radar_geotiff_exporter import radar_to_netcdf_with_coordinates
+
+            output_dir = os.path.join(output_base_path, "netcdf")
+            os.makedirs(output_dir, exist_ok=True)
+            nc_file = radar_to_netcdf_with_coordinates(radar, output_dir)
+            results["netcdf"] = nc_file
+            logger.info("Exported radar data to NetCDF")
+
+        else:
+            logger.warning(f"Unknown format: {fmt}. Skipping.")
+
+    return results
