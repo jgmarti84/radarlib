@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 
@@ -98,20 +98,26 @@ def bufr_fields_to_pyart_radar(
 
     This function mirrors the previous `bufr_to_pyart_new` behavior but is
     modular and easier to test. It intentionally avoids writing files.
+
+    This version works with field dicts output by bufr_to_dict() where each
+    dict contains 'data' and 'info' keys. The 'info' dict has a 'sweeps'
+    DataFrame with columns like gate_offset, gate_size, ngates, nrayos, elevaciones.
     """
     if not fields:
         raise ValueError("fields is empty")
 
-    # find reference field
+    # find reference field (the one with farthest range)
     ref_idx = _find_reference_field(fields)
     ref_field = fields[ref_idx]
 
+    # Get dimensions from reference field
     ref_ngates = int(ref_field["info"]["sweeps"]["ngates"].iloc[0])
-    ref_nrays = int(ref_field["info"]["sweeps"]["nrayos"].sum())
+    # NOTE: nrayos is per sweep; make_empty_ppi_radar will multiply by nsweeps
+    ref_rays_per_sweep = int(ref_field["info"]["sweeps"]["nrayos"].iloc[0])
     ref_nsweeps = int(ref_field["info"].get("nsweeps", 1))
 
     radar_name = ref_field["info"]["metadata"].get("instrument_name", "RADAR")
-    radar = _create_empty_radar(ref_ngates, ref_nrays, ref_nsweeps, radar_name)
+    radar = _create_empty_radar(ref_ngates, ref_rays_per_sweep, ref_nsweeps, radar_name)
 
     # range axis
     gate_size = int(ref_field["info"]["sweeps"]["gate_size"].iloc[0])
@@ -130,6 +136,25 @@ def bufr_fields_to_pyart_radar(
     # metadata
     radar.metadata = radar.metadata
     radar.metadata.update(ref_field["info"]["metadata"])
+
+    # Load geographic coordinates
+    radar.latitude["data"] = np.ndarray(1)
+    radar.latitude["data"][0] = ref_field["info"].get("lat", 0)
+    radar.latitude["units"] = "degrees"
+    radar.latitude["long_name"] = "latitude"
+    radar.latitude["_fillValue"] = -9999.0
+
+    radar.longitude["data"] = np.ndarray(1)
+    radar.longitude["data"][0] = ref_field["info"].get("lon", 0)
+    radar.longitude["units"] = "degrees"
+    radar.longitude["long_name"] = "longitude"
+    radar.longitude["_fillValue"] = -9999.0
+
+    radar.altitude["data"] = np.ndarray(1)
+    radar.altitude["data"][0] = ref_field["info"].get("altura", 0)
+    radar.altitude["units"] = "meters"
+    radar.altitude["long_name"] = "altitude"
+    radar.altitude["_fillValue"] = -9999.0
 
     # add fields aligned to reference
     for field in fields:
@@ -156,35 +181,76 @@ def bufr_paths_to_pyart(
     config: Optional[Dict[str, Any]] = None,
     debug: bool = False,
     save_path: Optional[Path] = None,
-) -> List[Tuple[str, Any]]:
-    """Decode one or more BUFR files and convert them to Py-ART Radar objects.
-
-    Returns a list of tuples (bufr_path, radar) for each successful conversion.
-    If `save_path` is provided the generated CFRadial files will be written there.
-    """
+) -> Any:
+    """Decode one or more BUFR files and convert to Py-ART Radar object."""
     from radarlib.io.bufr.bufr import bufr_to_dict
 
-    results: List[Tuple[str, Any]] = []
+    fields = []
     for p in bufr_paths:
         vol = bufr_to_dict(p, root_resources=root_resources, logger_name="bufr_to_pyart", legacy=False)
         if vol is None:
             continue
-        # the previous code expects a list of fields; we support passing list with a single volume
-        radar = bufr_fields_to_pyart_radar(
-            [vol],
-            include_scan_metadata=include_scan_metadata,
-            root_scan_config_files=root_scan_config_files,
-            config=config,
-            debug=debug,
-        )
-        results.append((p, radar))
-        if save_path is not None:
-            save_path = Path(save_path)
-            save_path.mkdir(parents=True, exist_ok=True)
-            base = Path(p).stem
-            out_file = save_path / f"{base}.nc"
-            save_radar_to_cfradial(radar, out_file)
-    return results
+        fields.append(vol)
+    # the previous code expects a list of fields; we support passing list with a single volume
+    radar = bufr_fields_to_pyart_radar(
+        fields,
+        include_scan_metadata=include_scan_metadata,
+        root_scan_config_files=root_scan_config_files,
+        config=config,
+        debug=debug,
+    )
+
+    if save_path is not None:
+        # save_path = Path(save_path)
+        # save_path.mkdir(parents=True, exist_ok=True)
+        # base = Path(p).stem
+        # out_file = save_path / f"{base}.nc"
+        save_radar_to_cfradial(radar, save_path)
+        return None
+    return radar
+
+
+def bufr_to_pyart(
+    fields: List[dict],
+    *,
+    debug: bool = False,
+    logger_name: str = __name__,
+    include_scan_metadata: bool = False,
+    root_scan_config_files: Optional[Path] = None,
+) -> Any:
+    """Convert a list of decoded BUFR field dicts to a PyART Radar object.
+
+    This is the modern equivalent to bufr_to_pyart_legacy() and uses the new
+    bufr_to_dict() output format (with 'sweeps' DataFrame in info).
+
+    Parameters
+    ----------
+    fields : List[dict]
+        List of field dicts from bufr_to_dict(bufr_filename, legacy=False).
+        Each dict has 'data' array and 'info' dict with 'sweeps' DataFrame.
+    debug : bool, optional
+        Debug logging flag (default False)
+    logger_name : str, optional
+        Logger name (default __name__)
+    include_scan_metadata : bool, optional
+        Include RMA scan metadata from XML files (default False)
+    root_scan_config_files : Path, optional
+        Root directory for scan config XML files
+
+    Returns
+    -------
+    pyart.Radar
+        PyART Radar object with all fields combined
+    """
+    if not fields:
+        raise ValueError("fields is empty")
+
+    return bufr_fields_to_pyart_radar(
+        fields,
+        include_scan_metadata=include_scan_metadata,
+        root_scan_config_files=root_scan_config_files,
+        debug=debug,
+    )
 
 
 def save_radar_to_cfradial(radar: Any, out_file: Path, format: str = "NETCDF4") -> Path:

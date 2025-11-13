@@ -44,3 +44,10 @@ exclude = '''/(
  | dist
  | src/radarlib/io/bufr/bufr_resources
 )/'''
+
+[tool.isort]
+# Configure isort to be compatible with black
+profile = "black"
+line_length = 120
+# Skip vendored code
+skip_glob = ["src/radarlib/io/bufr/bufr_resources/*"]
