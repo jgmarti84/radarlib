@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      run_integration:
+        description: 'Run integration tests (set to "true" to run)'
+        required: false
+        default: 'false'
+
+env:
+  PYTHON_VERSION: "3.12"
+  PIP_CACHE_DIR: "$HOME/.cache/pip"
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PIP_CACHE_DIR }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}-${{ env.PYTHON_VERSION }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y git build-essential gdal-bin libgdal-dev
+      - name: Install project and dev deps
+        run: |
+          pip install --upgrade pip
+          pip install --no-cache-dir -e .
+          pip install --no-cache-dir -r requirements-dev.txt || true
+      - name: Ensure pre-commit present
+        run: pip install --no-cache-dir pre-commit
+      - name: Run pre-commit (all files)
+        run: pre-commit run --all-files --show-diff-on-failure --color always
+
+  unit_tests:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PIP_CACHE_DIR }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}-${{ env.PYTHON_VERSION }}
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y git build-essential gdal-bin libgdal-dev
+      - name: Install project and dev deps
+        run: |
+          pip install --upgrade pip
+          pip install --no-cache-dir -e .
+          pip install --no-cache-dir -r requirements-dev.txt || true
+      - name: Run pytest (unit)
+        run: pytest -q -m "not integration" --junitxml=report-unit.xml
+      - name: Upload unit test report
+        uses: actions/upload-artifact@v4
+        with:
+          name: report-unit.xml
+          path: report-unit.xml
+
+  integration_tests:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    needs: unit_tests
+    if: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.run_integration == 'true') || env.RUN_INTEGRATION == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PIP_CACHE_DIR }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}-${{ env.PYTHON_VERSION }}
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y git build-essential gdal-bin libgdal-dev
+      - name: Install project and dev deps
+        run: |
+          pip install --upgrade pip
+          pip install --no-cache-dir -e .
+          pip install --no-cache-dir -r requirements-dev.txt || true
+      - name: Run pytest (integration)
+        run: pytest -q -m integration --junitxml=report-integration.xml
+      - name: Upload integration test report
+        uses: actions/upload-artifact@v4
+        with:
+          name: report-integration.xml
+          path: report-integration.xml
