@@ -20,6 +20,6 @@
             ]
         }
     },
-    "postCreateCommand": "pip install --no-cache-dir -r requirements-dev.txt",
+    "postCreateCommand": "./.devcontainer/post-create.sh",
     "remoteUser": "root"
 }
