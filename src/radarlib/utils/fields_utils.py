@@ -346,7 +346,7 @@ def calcular_zdr(radar: Radar, ref_vertical=None, ref_horizontal=None, zdr_out_f
     return radar
 
 
-def calculate_zdr(radar: Radar, hrefl_field=None, vrefl_field=None, zdr_field=None) -> Radar:
+def calculate_zdr(radar: Radar, hrefl_field=None, vrefl_field=None, zdr_field=None) -> Radar: #type: ignore
     """
     Genera el campo Zdr de radar.
 
@@ -387,3 +387,4 @@ def calculate_zdr(radar: Radar, hrefl_field=None, vrefl_field=None, zdr_field=No
     new_field = get_metadata(zdr_field)
     new_field["data"] = zdr_data
     radar.add_field(zdr_field, new_field, replace_existing=True)
+    return radar

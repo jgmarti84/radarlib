@@ -7,6 +7,7 @@ import numpy as np
 import numpy.ma as ma
 import pyart
 from pyart.core import Radar
+from radarlib.utils.names_utils import get_path_from_RMA_filename
 
 logger = logging.getLogger(__name__)
 
@@ -273,6 +274,34 @@ def read_radar_netcdf(
         raise NetCDFError(f"NetCDF file {netcdf_fname} does not exist.")
 
 
+def save_radar_netcdf(radar, filenam_oute=None, path_out=None, logger_name=__name__, **kwargs):
+    """Guarda un objeto Py-ART Radar en formato NetCDF (CFRadial).
+    Parámetros:
+    - radar: Objeto Radar a guardar.
+    - filename_out: Nombre del archivo de salida (opcional).
+    - path_out: Ruta del directorio de salida (opcional).
+    - logger_name: Nombre del logger a utilizar.
+    Retorna:
+    - fullname: Ruta completa del archivo guardado.
+    """
+    logger = logging.getLogger(logger_name)
+
+    if filenam_oute is None:
+        filenam_oute = radar.metadata['filename']
+    if not filenam_oute.endswith('.nc'):
+        filenam_oute = filenam_oute + '.nc'
+
+    if path_out is None or path_out == 'bbdd':
+        path_out = get_path_from_RMA_filename(filename=filenam_oute, **kwargs)
+    os.makedirs(path_out, exist_ok=True)
+
+    try:
+        fullname = os.path.join(path_out, filenam_oute)
+        pyart.io.cfradial.write_cfradial(fullname, radar)
+        return fullname
+    except Exception as e:
+        logger.error('Error al guardar NetCDF: ' + str(e))
+        raise
 # def read_vol_RMA(
 #         filename, sweep=None, extract_sweeps=False,
 #         use_ftp=True, path_vol=None, debug=False, verbose=False,
