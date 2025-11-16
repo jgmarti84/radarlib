@@ -2,12 +2,15 @@
 """
 Tests for the refactored COLMAX generation.
 """
+import time
 from pathlib import Path
 
 import pytest
 
-from radarlib.io.pyart.colmax import generate_colmax
+from radarlib.io.pyart.colmax import generate_colmax, _compute_colmax, _compute_colmax_optimized
 from radarlib.io.pyart.pyart_radar import estandarizar_campos_RMA, read_radar_netcdf
+from radarlib.io.pyart.vvg import get_ordered_sweep_list, get_vertical_vinculation_gate_map
+from radarlib import config
 
 
 @pytest.fixture
@@ -168,3 +171,157 @@ class TestGenerateColmax:
 
         # They should be different objects
         assert radar is not result_radar
+
+
+class TestColmaxPerformance:
+    """Test suite for COLMAX performance improvements."""
+
+    def test_optimized_faster_than_old_with_filters(self, radar_object):
+        """Test that optimized implementation is faster than old with filters enabled."""
+        radar = radar_object
+
+        # Prepare common inputs for both implementations
+        from copy import deepcopy
+
+        source_field = "DBZH" if "DBZH" in radar.fields else list(radar.fields.keys())[0]
+
+        # Create filtered field for testing
+        filtered_field_name = source_field + "_test_filtered"
+        radar.add_field_like(source_field, filtered_field_name, radar.fields[source_field]["data"].copy())
+
+        # Get sweep ordering and vvg_map
+        sw_tuples_az, sweep_ref = get_ordered_sweep_list(radar, use_sweeps_above=0)
+        vvg_map = get_vertical_vinculation_gate_map(
+            radar=radar,
+            logger_name=__name__,
+            use_sweeps_above=0,
+            save_vvg_map=True,
+            root_cache=config.ROOT_CACHE_PATH,
+            verbose=False,
+            regenerate_flag=False,
+        )
+
+        # Time the old implementation
+        start_old = time.perf_counter()
+        result_old = _compute_colmax(
+            radar=radar,
+            filtered_field_name=filtered_field_name,
+            source_field=source_field,
+            sw_tuples_az=sw_tuples_az,
+            sweep_ref=sweep_ref,
+            vvg_map=vvg_map,
+        )
+        time_old = time.perf_counter() - start_old
+
+        # Time the optimized implementation
+        start_optimized = time.perf_counter()
+        result_optimized = _compute_colmax_optimized(
+            radar=radar,
+            field_name=filtered_field_name,
+            sw_tuples_az=sw_tuples_az,
+            sweep_ref=sweep_ref,
+            vvg_map=vvg_map,
+        )
+        time_optimized = time.perf_counter() - start_optimized
+
+        # Clean up temporary field
+        del radar.fields[filtered_field_name]
+
+        # Assert optimized is faster (with some tolerance for variance)
+        # We expect at least some speedup, but allow for measurement variance
+        speedup_ratio = time_old / time_optimized
+        print(f"\nPerformance comparison (with filters):")
+        print(f"  Old implementation: {time_old:.4f}s")
+        print(f"  Optimized implementation: {time_optimized:.4f}s")
+        print(f"  Speedup ratio: {speedup_ratio:.2f}x")
+
+        # The optimized version should be faster or at least not significantly slower
+        # Allow for up to 20% slower due to measurement variance, but ideally faster
+        assert time_optimized <= time_old * 1.2, (
+            f"Optimized implementation should not be significantly slower. "
+            f"Old: {time_old:.4f}s, Optimized: {time_optimized:.4f}s"
+        )
+
+        # Verify results are consistent
+        import numpy as np
+
+        assert result_old.shape == result_optimized.shape, "Results should have same shape"
+        # Compare non-masked values
+        mask_combined = result_old.mask | result_optimized.mask
+        if not np.all(mask_combined):
+            non_masked_old = result_old[~mask_combined]
+            non_masked_optimized = result_optimized[~mask_combined]
+            assert np.allclose(
+                non_masked_old, non_masked_optimized, rtol=1e-5
+            ), "Results should be numerically equivalent"
+
+    def test_optimized_faster_than_old_no_filters(self, radar_object):
+        """Test that optimized implementation is faster than old without filters."""
+        radar = radar_object
+
+        # Prepare common inputs for both implementations
+        source_field = "DBZH" if "DBZH" in radar.fields else list(radar.fields.keys())[0]
+
+        # Use source field directly (no filtering)
+        field_name = source_field
+
+        # Get sweep ordering and vvg_map
+        sw_tuples_az, sweep_ref = get_ordered_sweep_list(radar, use_sweeps_above=0)
+        vvg_map = get_vertical_vinculation_gate_map(
+            radar=radar,
+            logger_name=__name__,
+            use_sweeps_above=0,
+            save_vvg_map=True,
+            root_cache=config.ROOT_CACHE_PATH,
+            verbose=False,
+            regenerate_flag=False,
+        )
+
+        # Time the old implementation
+        start_old = time.perf_counter()
+        result_old = _compute_colmax(
+            radar=radar,
+            filtered_field_name=field_name,
+            source_field=source_field,
+            sw_tuples_az=sw_tuples_az,
+            sweep_ref=sweep_ref,
+            vvg_map=vvg_map,
+        )
+        time_old = time.perf_counter() - start_old
+
+        # Time the optimized implementation
+        start_optimized = time.perf_counter()
+        result_optimized = _compute_colmax_optimized(
+            radar=radar,
+            field_name=field_name,
+            sw_tuples_az=sw_tuples_az,
+            sweep_ref=sweep_ref,
+            vvg_map=vvg_map,
+        )
+        time_optimized = time.perf_counter() - start_optimized
+
+        # Assert optimized is faster
+        speedup_ratio = time_old / time_optimized
+        print(f"\nPerformance comparison (no filters):")
+        print(f"  Old implementation: {time_old:.4f}s")
+        print(f"  Optimized implementation: {time_optimized:.4f}s")
+        print(f"  Speedup ratio: {speedup_ratio:.2f}x")
+
+        # The optimized version should be faster or at least not significantly slower
+        assert time_optimized <= time_old * 1.2, (
+            f"Optimized implementation should not be significantly slower. "
+            f"Old: {time_old:.4f}s, Optimized: {time_optimized:.4f}s"
+        )
+
+        # Verify results are consistent
+        import numpy as np
+
+        assert result_old.shape == result_optimized.shape, "Results should have same shape"
+        # Compare non-masked values
+        mask_combined = result_old.mask | result_optimized.mask
+        if not np.all(mask_combined):
+            non_masked_old = result_old[~mask_combined]
+            non_masked_optimized = result_optimized[~mask_combined]
+            assert np.allclose(
+                non_masked_old, non_masked_optimized, rtol=1e-5
+            ), "Results should be numerically equivalent"
