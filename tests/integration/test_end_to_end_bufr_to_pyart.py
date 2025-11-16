@@ -12,7 +12,7 @@ import pytest
 
 @pytest.mark.integration
 @pytest.mark.filterwarnings("ignore:numpy.ndarray size changed.*:RuntimeWarning")
-def test_end_to_end_bufr_to_pyart(tmp_path: Path):
+def test_end_to_end_bufr_to_pyart(tmp_save_path: Path):
     # Locate sample BUFR files under tests/data/bufr
     data_dir = Path("tests/data/bufr")
     if not data_dir.exists():
@@ -24,12 +24,9 @@ def test_end_to_end_bufr_to_pyart(tmp_path: Path):
 
     from radarlib.io.bufr.pyart_writer import bufr_paths_to_pyart
 
-    results = bufr_paths_to_pyart([str(bufr_files[0])], root_resources=None, save_path=tmp_path)
+    results = bufr_paths_to_pyart([str(bufr_files[0])], root_resources=None, save_path=tmp_save_path)
     assert results
-    p, radar = results[0]
-    assert radar is not None
-    # output file should exist
-    out_file = tmp_path / f"{Path(p).stem}.nc"
+    out_file = tmp_save_path / f"{bufr_files[0].stem}.nc"
     assert out_file.exists()
 
 

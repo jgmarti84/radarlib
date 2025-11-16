@@ -1,8 +1,19 @@
 import pathlib
+import shutil
 
 import pytest
 
 HERE = pathlib.Path(__file__).parent
+
+
+@pytest.fixture(scope="session")
+def tmp_save_path():
+    """Temporary directory for saving test output files within the workspace."""
+    tmp_dir = HERE.parent / "tmp"  # Creates /workspaces/radarlib/tmp
+    tmp_dir.mkdir(exist_ok=True)
+    yield tmp_dir
+    # Clean up after session
+    shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 @pytest.fixture(scope="session")

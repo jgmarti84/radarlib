@@ -201,12 +201,12 @@ def bufr_paths_to_pyart(
     )
 
     if save_path is not None:
-        # save_path = Path(save_path)
-        # save_path.mkdir(parents=True, exist_ok=True)
-        # base = Path(p).stem
-        # out_file = save_path / f"{base}.nc"
-        save_radar_to_cfradial(radar, save_path)
-        return None
+        save_path = Path(save_path)
+        save_path.mkdir(parents=True, exist_ok=True)
+        base = Path(p).stem
+        out_file = save_path / f"{base}.nc"
+        save_radar_to_cfradial(radar, out_file)
+        return radar
     return radar
 
 
