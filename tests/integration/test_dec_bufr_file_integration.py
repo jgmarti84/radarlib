@@ -62,7 +62,7 @@ class TestBUFRDecodingConsistency:
         """Test that decoded field values are physically reasonable."""
         decoded = bufr_to_dict(sample_bufr_file, root_resources=None, logger_name="test")
 
-        data = decoded["data"]
+        data = decoded["data"]  # type: ignore
 
         # Should have some non-masked/non-NaN values
         if isinstance(data, np.ma.MaskedArray):
@@ -85,7 +85,7 @@ class TestBUFRDecodingConsistency:
     def test_decoded_metadata_values_reasonable(self, sample_bufr_file):
         """Test that decoded metadata values are reasonable."""
         decoded = bufr_to_dict(sample_bufr_file, root_resources=None, logger_name="test")
-        info = decoded["info"]
+        info = decoded["info"]  # type: ignore
 
         # Date/time checks from 'ano_vol', 'mes_vol', etc.
         assert 1900 <= info.get("ano_vol", 2024) <= 2100, "Year out of range"

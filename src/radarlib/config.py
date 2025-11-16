@@ -19,6 +19,15 @@ root_proyect = os.path.dirname(os.path.abspath(__file__))
 
 DEFAULTS: Dict[str, Any] = {
     "BUFR_RESOURCES_PATH": os.path.join(root_proyect, "io", "bufr", "bufr_resources"),
+    "ROOT_CACHE_PATH": os.path.join(root_proyect, "cache"),
+    "ROOT_RADAR_FILES_PATH": os.path.join(root_proyect, "radares"),
+    "COLMAX_ELEV_LIMIT1": 0.65,
+    "COLMAX_RHOHV_FILTER": True,
+    "COLMAX_RHOHV_UMBRAL": 0.8,
+    "COLMAX_WRAD_FILTER": True,
+    "COLMAX_WRAD_UMBRAL": 4.6,
+    "COLMAX_TDR_FILTER": True,
+    "COLMAX_TDR_UMBRAL": 8.5,
 }
 
 _config: Dict[str, Any] = DEFAULTS.copy()

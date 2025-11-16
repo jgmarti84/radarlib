@@ -6,6 +6,8 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
+from radarlib.utils.names_utils import get_netcdf_filename_from_bufr_filename
+
 logger = logging.getLogger(__name__)
 
 
@@ -203,8 +205,9 @@ def bufr_paths_to_pyart(
     if save_path is not None:
         save_path = Path(save_path)
         save_path.mkdir(parents=True, exist_ok=True)
-        base = Path(p).stem
-        out_file = save_path / f"{base}.nc"
+        # base = Path(p).stem
+        netcdf_fname = get_netcdf_filename_from_bufr_filename(str(Path(p).stem))
+        out_file = save_path / netcdf_fname
         save_radar_to_cfradial(radar, out_file)
         return radar
     return radar

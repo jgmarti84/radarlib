@@ -11,12 +11,17 @@ from radarlib.io.pyart.pyart_radar import estandarizar_campos_RMA, read_radar_ne
 
 
 @pytest.fixture
-def radar_object():
+def radar_object(sample_RMA11_vol1_bufr_files):
     """Load and standardize example radar for testing."""
-    netcdf_fname = Path(__file__).parent.parent.parent / ("outputs/example_netcdfs/RMA11_0315_01_20251020T151109Z.nc")
-
+    netcdf_fname = Path(__file__).parent.parent.parent / "outputs/example_netcdfs/RMA11_0315_01_20251020T152828Z.nc"
     if not netcdf_fname.exists():
-        pytest.skip(f"Example netCDF file not found: {netcdf_fname}")
+        from radarlib.io.bufr.pyart_writer import bufr_paths_to_pyart
+
+        # build the radar object from the bufr files
+        save_path = Path(__file__).parent.parent.parent / "outputs/example_netcdfs/"
+        radar = bufr_paths_to_pyart(
+            [str(fn) for fn in sample_RMA11_vol1_bufr_files], root_resources=None, save_path=save_path
+        )
 
     radar = read_radar_netcdf(str(netcdf_fname))
     radar = estandarizar_campos_RMA(radar=radar, debug=False, idioma=0)  # type: ignore

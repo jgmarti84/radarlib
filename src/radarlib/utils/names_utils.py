@@ -40,3 +40,14 @@ def get_path_from_RMA_filename(filename, **kwargs):
 
     path = os.path.join(root_radar_files, radar, ano, mes, dia, hora)
     return path
+
+
+def get_netcdf_filename_from_bufr_filename(ref_filename: str) -> str:
+    """Generate netCDF filename from BUFR filename for RMA radars."""
+    # Elimino la extensión original del archivo leido y armo el
+    # nombre final por partes.
+    fichero = ref_filename.split(".")[0]
+    fichero = (
+        fichero.split("_")[0] + "_" + fichero.split("_")[1] + "_" + fichero.split("_")[2] + "_" + fichero.split("_")[4]
+    )
+    return fichero + ".nc"

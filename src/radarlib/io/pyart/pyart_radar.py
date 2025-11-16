@@ -164,7 +164,7 @@ def normalize_fields_names(radar: Radar, idioma: int | bool | str = 1) -> Radar:
 
 
 def estandarizar_campos_RMA(radar: Radar, debug: bool = False, idioma: bool = True, replace_dbz_fields: bool = False):
-    normalize_RMA_fields(radar, debug=debug, idioma=idioma, replace_dbz_fields=replace_dbz_fields)
+    return normalize_RMA_fields(radar, debug=debug, idioma=idioma, replace_dbz_fields=replace_dbz_fields)
 
 
 def normalize_RMA_fields(

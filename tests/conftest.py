@@ -1,9 +1,59 @@
 import pathlib
 import shutil
+from collections import defaultdict
 
 import pytest
 
 HERE = pathlib.Path(__file__).parent
+
+
+@pytest.fixture(scope="session")
+def sample_RMA11_vol1_bufr_files():
+    """Get sample RMA11 VOL1 BUFR file paths."""
+    bufr_path = HERE / "data" / "bufr" / "RMA11"
+    if not bufr_path.exists():
+        pytest.skip("No BUFR test data available")
+
+    bufr_files = list(bufr_path.glob("RMA11_0315_01_*.BUFR"))
+
+    if not bufr_files:
+        pytest.skip("No RMA11 VOL1 BUFR test files found")
+
+    groups = defaultdict(list)
+    for p in bufr_files:
+        stem = p.stem  # e.g., "RMA11_0315_01_DBZH_20251020T151109Z"
+        timestamp = stem.split("_")[-1]
+        groups[timestamp].append(p)
+
+    return list(groups.values())[0]
+
+
+@pytest.fixture(scope="session")
+def sample_RMA5_vol2_bufr_files():
+    """Get sample RMA5 VOL2 BUFR file paths."""
+    bufr_path = HERE / "data" / "bufr" / "RMA5"
+    if not bufr_path.exists():
+        pytest.skip("No BUFR test data available")
+
+    bufr_files = list(bufr_path.glob("*.BUFR"))
+    if not bufr_files:
+        pytest.skip("No RMA5 VOL2 BUFR test files found")
+
+    return [str(f) for f in bufr_files]
+
+
+@pytest.fixture(scope="session")
+def sample_AR_bufr_file():
+    """Get sample BUFR file path."""
+    bufr_path = pathlib.Path("tests/data/bufr")
+    if not bufr_path.exists():
+        pytest.skip("No BUFR test data available")
+
+    bufr_files = list(bufr_path.glob("*.BUFR"))
+    if not bufr_files:
+        pytest.skip("No BUFR test files found")
+
+    return str(bufr_files[0])
 
 
 @pytest.fixture(scope="session")
