@@ -17,3 +17,6 @@ build/
 
 # Output directories
 outputs/
+
+# Cache directories
+src/radarlib/cacheVVG_Map/
