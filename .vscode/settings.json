@@ -20,5 +20,7 @@
     "editor.formatOnSave": true,
     "terminal.integrated.env.linux": {
         "PYTHONPATH": "${workspaceFolder}/src:${env:PYTHONPATH}"
-    }
+    },
+    "python-envs.defaultEnvManager": "ms-python.python:system",
+    "python-envs.pythonProjects": []
 }
