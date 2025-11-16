@@ -410,9 +410,7 @@ def _compute_colmax_optimized(
             # Where both are valid, take maximum
             both_valid = ~mask_colmax & ~mask_sweep
             if np.any(both_valid):
-                colmax_data[both_valid, gate_ref] = np.maximum(
-                    colmax_column[both_valid], sweep_column[both_valid]
-                )
+                colmax_data[both_valid, gate_ref] = np.maximum(colmax_column[both_valid], sweep_column[both_valid])
 
     return colmax_data
 
