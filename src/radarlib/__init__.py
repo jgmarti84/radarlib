@@ -4,6 +4,9 @@ import os
 
 from pyart.config import load_config
 
+# Import colormaps module to automatically register custom colormaps
+from radarlib import colormaps  # noqa: F401
+
 _citation_text = """
 ### ----------------------------------------------------------------------- ###
 ###                         Grupo Radar Cordoba                             ###
