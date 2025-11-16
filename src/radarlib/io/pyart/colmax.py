@@ -6,16 +6,15 @@ Generates a COLMAX (column maximum) field by comparing gates across multiple
 sweeps and retaining the maximum value for each gate in the reference sweep.
 """
 import logging
-from typing import Optional, Tuple
+from typing import Optional
 
 import numpy as np
-from pyart.core import Radar
 from pyart.config import get_field_name
+from pyart.core import Radar
 
 from radarlib import config
-from radarlib.io.pyart.vvg import get_vertical_vinculation_gate_map, get_ordered_sweep_list
 from radarlib.io.pyart.fieldfilters import filterfield_excluding_gates_above, filterfield_excluding_gates_below
-
+from radarlib.io.pyart.vvg import get_ordered_sweep_list, get_vertical_vinculation_gate_map
 
 logger = logging.getLogger(__name__)
 
@@ -93,27 +92,27 @@ def generate_colmax(
     # Initialize field names
     if source_field is None:
         source_field = get_field_name("reflectivity")
-    
+
     if target_field is None:
         target_field = get_field_name("colmax")
-    
+
     refl_field = get_field_name("reflectivity")
     rhv_field = get_field_name("cross_correlation_ratio")
     zdr_field = get_field_name("differential_reflectivity")
     wrad_field = get_field_name("spectrum_width")
-    
+
     if root_cache is None:
         root_cache = config.ROOT_CACHE_PATH
-    
+
     # Validate input
     if source_field not in radar.fields:
         logger.error(f"Source field '{source_field}' not found in radar fields.")
         return False
-    
+
     if radar.nsweeps < 2:
         logger.debug("Cannot generate COLMAX: volume has fewer than 2 sweeps.")
         return False
-    
+
     # Create filtered copy of source field
     filtered_field_name = source_field + "_filtered"
     _apply_polarimetric_filters(
@@ -133,7 +132,7 @@ def generate_colmax(
         wrad_filter=wrad_filter,
         wrad_threshold=wrad_threshold,
     )
-    
+
     # Get sweep ordering and vertical vinculation map
     sw_tuples_az, sweep_ref = get_ordered_sweep_list(radar, elev_limit)
     vvg_map = get_vertical_vinculation_gate_map(
@@ -145,7 +144,7 @@ def generate_colmax(
         verbose=verbose,
         regenerate_flag=regenerate_flag,
     )
-    
+
     # Generate COLMAX field
     colmax_data = _compute_colmax(
         radar=radar,
@@ -155,7 +154,7 @@ def generate_colmax(
         sweep_ref=sweep_ref,
         vvg_map=vvg_map,
     )
-    
+
     # Add field to radar
     _add_colmax_to_radar(
         radar=radar,
@@ -163,15 +162,16 @@ def generate_colmax(
         source_field=filtered_field_name,
         target_field=target_field,
     )
-    
+
     # Clean up temporary field
     if filtered_field_name in radar.fields:
         del radar.fields[filtered_field_name]
-    
+
     if save_changes and path_out:
         from radarlib.io.pyart.pyart_radar import save_radar_netcdf
+
         save_radar_netcdf(radar=radar, path_out=path_out)
-    
+
     return True
 
 
@@ -194,20 +194,16 @@ def _apply_polarimetric_filters(
 ) -> None:
     """Apply polarimetric filters to the source field."""
     src_field_data = radar.fields[source_field]["data"]
-    
+
     radar.add_field_like(
         source_field,
         target_field,
         src_field_data.copy(),
         replace_existing=True,
     )
-    radar.fields[target_field]["standard_name"] = (
-        radar.fields[source_field].get("standard_name", source_field)
-    )
-    radar.fields[target_field]["units"] = (
-        radar.fields[source_field].get("units", "")
-    )
-    
+    radar.fields[target_field]["standard_name"] = radar.fields[source_field].get("standard_name", source_field)
+    radar.fields[target_field]["units"] = radar.fields[source_field].get("units", "")
+
     # Apply reflectivity filter
     if refl_filter and refl_field in radar.fields:
         try:
@@ -221,7 +217,7 @@ def _apply_polarimetric_filters(
             )
         except Exception as e:
             logger.warning(f"Error filtering with {refl_field}: {e}")
-    
+
     # Apply RhoHV filter
     if rhv_filter and rhv_field in radar.fields:
         try:
@@ -235,7 +231,7 @@ def _apply_polarimetric_filters(
             )
         except Exception as e:
             logger.warning(f"Error filtering with {rhv_field}: {e}")
-    
+
     # Apply ZDR filter
     if zdr_filter and zdr_field in radar.fields:
         try:
@@ -249,7 +245,7 @@ def _apply_polarimetric_filters(
             )
         except Exception as e:
             logger.warning(f"Error filtering with {zdr_field}: {e}")
-    
+
     # Apply spectrum width filter
     if wrad_filter and wrad_field in radar.fields:
         try:
@@ -283,37 +279,38 @@ def _compute_colmax(
     """
     sw_rays = int(radar.nrays / radar.nsweeps)
     filtered_data = radar.fields[filtered_field_name]["data"]
-    
+
     # Initialize with reference sweep
     radar_aux = radar.extract_sweeps([sweep_ref])
     colmax_data = radar_aux.fields[filtered_field_name]["data"].copy()
     del radar_aux
-    
+
     # Compare gates across sweeps
     for gate_ref in range(radar.ngates):
-        for el, sweep in sw_tuples_az[1:]:
+        for _el, sweep in sw_tuples_az[1:]:
             gate = vvg_map[gate_ref, sweep]
-            
+
             if np.ma.is_masked(gate):
                 continue
-            
+
             gate = int(gate)
-            
+
             for ray in range(sw_rays):
                 ray_idx = ray + sw_rays * sweep
-                
+
                 # If reference gate is masked but higher sweep has valid data
-                if (np.ma.is_masked(colmax_data[ray, gate_ref]) and
-                        not np.ma.is_masked(filtered_data[ray_idx, gate])):
+                if np.ma.is_masked(colmax_data[ray, gate_ref]) and not np.ma.is_masked(filtered_data[ray_idx, gate]):
                     colmax_data[ray, gate_ref] = filtered_data[ray_idx, gate]
                     colmax_data.mask[ray, gate_ref] = False
-                
+
                 # If higher sweep value is greater, update
-                elif (not np.ma.is_masked(filtered_data[ray_idx, gate]) and
-                      not np.ma.is_masked(colmax_data[ray, gate_ref]) and
-                      colmax_data[ray, gate_ref] < filtered_data[ray_idx, gate]):
+                elif (
+                    not np.ma.is_masked(filtered_data[ray_idx, gate])
+                    and not np.ma.is_masked(colmax_data[ray, gate_ref])
+                    and colmax_data[ray, gate_ref] < filtered_data[ray_idx, gate]
+                ):
                     colmax_data[ray, gate_ref] = filtered_data[ray_idx, gate]
-    
+
     return colmax_data
 
 
@@ -325,18 +322,14 @@ def _add_colmax_to_radar(
 ) -> None:
     """Add COLMAX field to radar object with proper metadata."""
     # Resize to full volume dimensions
-    colmax_field_data = np.ma.array(
-        np.zeros((radar.nrays, radar.ngates)), mask=True
-    )
+    colmax_field_data = np.ma.array(np.zeros((radar.nrays, radar.ngates)), mask=True)
     sw_rays = int(radar.nrays / radar.nsweeps)
     colmax_field_data.mask[0:sw_rays, :] = colmax_data.mask
     colmax_field_data[0:sw_rays, :] = colmax_data.copy()
-    
+
     # Add field to radar
-    radar.add_field_like(
-        source_field, target_field, colmax_field_data, replace_existing=True
-    )
-    
+    radar.add_field_like(source_field, target_field, colmax_field_data, replace_existing=True)
+
     # Set metadata
     radar.fields[target_field]["standard_name"] = target_field
     radar.fields[target_field]["long_name"] = "Column Maximum"

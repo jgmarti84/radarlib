@@ -3,8 +3,8 @@
 """
 @author: jsaffe
 """
-import os
 import logging
+import os
 
 import numpy as np
 
@@ -12,14 +12,16 @@ import numpy as np
 from radarlib import config
 
 
-def get_vertical_vinculation_gate_map(radar,
-                                      logger_name=__name__,
-                                      use_sweeps_above: float=0,
-                                      altitude_threshold=20000,
-                                      save_vvg_map=True,
-                                      root_cache=None,
-                                      verbose=False,
-                                      regenerate_flag=False):
+def get_vertical_vinculation_gate_map(
+    radar,
+    logger_name=__name__,
+    use_sweeps_above: float = 0,
+    altitude_threshold=20000,
+    save_vvg_map=True,
+    root_cache=None,
+    verbose=False,
+    regenerate_flag=False,
+):
     """
     La función genera y devuelve el campo de vinculación vertical de celdas
     entre barridos.
@@ -73,7 +75,7 @@ def get_vertical_vinculation_gate_map(radar,
     if root_cache is None:
         root_cache = config.ROOT_CACHE_PATH
 
-    root_cache_vvgmap = root_cache+'VVG_Map/'
+    root_cache_vvgmap = root_cache + "VVG_Map/"
     if not os.path.isdir(root_cache_vvgmap):
         os.makedirs(root_cache_vvgmap)
 
@@ -85,23 +87,32 @@ def get_vertical_vinculation_gate_map(radar,
     # generamos nombre del archivo a utilizar en la lectura/escritura:
     # estos incluyen el nombre del radar, estrategia de escaneo,
     # número de volumen, y las elevaciones utilizadas en el escaneo
-    elevations = ''
+    elevations = ""
     for sweep in range(radar.nsweeps):
-        elevations += format(str(radar.get_elevation(sweep)[0]), '.5') + '_'
+        elevations += format(str(radar.get_elevation(sweep)[0]), ".5") + "_"
 
-    vvgm_filename = (root_cache_vvgmap + 'vvgm_of_'
-                     + radar.metadata['instrument_name']
-                     + '_' + radar.metadata['scan_id']
-                     + '_'+radar.metadata['filename'].split('_')[2]
-                     + '_['+elevations+']_'+'[min_sw_el' +
-                     str(use_sweeps_above)+']')
+    vvgm_filename = (
+        root_cache_vvgmap
+        + "vvgm_of_"
+        + radar.metadata["instrument_name"]
+        + "_"
+        + radar.metadata["scan_id"]
+        + "_"
+        + radar.metadata["filename"].split("_")[2]
+        + "_["
+        + elevations
+        + "]_"
+        + "[min_sw_el"
+        + str(use_sweeps_above)
+        + "]"
+    )
 
     # buscamos en cache campo hscan
-    if os.path.isfile(vvgm_filename+'.npy') and not regenerate_flag:
+    if os.path.isfile(vvgm_filename + ".npy") and not regenerate_flag:
 
         # leyendo hscan_map_data
-        vvg_map = np.load(vvgm_filename+'.npy')
-        logger.debug('Leyendo vvgm de archivo ...') if verbose else None
+        vvg_map = np.load(vvgm_filename + ".npy")
+        logger.debug("Leyendo vvgm de archivo ...") if verbose else None
 
         vvg_map = np.ma.masked_invalid(vvg_map)
         vvg_map = np.ma.masked_equal(vvg_map, vvg_map.fill_value)
@@ -125,8 +136,7 @@ def get_vertical_vinculation_gate_map(radar,
     [sw_tuples_az, sw_ref] = get_ordered_sweep_list(radar, use_sweeps_above)
 
     if not len(sw_tuples_az) > 1:
-        raise ValueError('No hay barridos suficientes (2 o más) con el limite'
-                         + ' de elevacion establecido.')
+        raise ValueError("No hay barridos suficientes (2 o más) con el limite" + " de elevacion establecido.")
 
     # =========================================================================
     # Vinculación vertical entre gates
@@ -139,7 +149,7 @@ def get_vertical_vinculation_gate_map(radar,
     # por arriba del umbral especificado) está relacionada con la celda 58 del
     # barrido número 11. Los barridos no utilizados simplemente son rellandos
     # con NaN.
-    vvg_map = np.ma.array(np.zeros((radar.ngates, radar.nsweeps))*np.nan, mask=False)
+    vvg_map = np.ma.array(np.zeros((radar.ngates, radar.nsweeps)) * np.nan, mask=False)
 
     ray_ref = sw_rays * sw_ref  # rayos por barrido
 
@@ -147,9 +157,8 @@ def get_vertical_vinculation_gate_map(radar,
     # si bien en función de la proyección utilizada esta distancia varía
     # a medida que nos desplazamaos en rango, esta variación es cercana a
     # a 2x10^(-3) en latitud o equivalentemente del orden de 0.3m.
-    lat_distance = np.abs(radar.gate_latitude['data'][ray_ref, 0] -
-                          radar.gate_latitude['data'][ray_ref, 1])
-    lat_distance = lat_distance/2
+    lat_distance = np.abs(radar.gate_latitude["data"][ray_ref, 0] - radar.gate_latitude["data"][ray_ref, 1])
+    lat_distance = lat_distance / 2
 
     for gate_ref in range(radar.ngates):
         # calculamos la latitud del borde inferior del gate de referencia
@@ -157,15 +166,14 @@ def get_vertical_vinculation_gate_map(radar,
         # referencia si las latitudes de sus centros superan la latitud del
         # borde inferior. Se calcula solo para el rayo 0º (dirección norte), ya
         # que las vinculaciones son simétricas para el resto de los haces.
-        lat1 = radar.gate_latitude['data'][ray_ref, gate_ref] - lat_distance
+        lat1 = radar.gate_latitude["data"][ray_ref, gate_ref] - lat_distance
 
         last_gate = gate_ref  # variable para optimizar el calculo.
-        for [elev, sweep] in sw_tuples_az:
+        for [_elev, sweep] in sw_tuples_az:
             for gate in range(last_gate, radar.ngates):
 
                 # Limita el calculo a una altura de altitude_threshold
-                if (radar.gate_altitude['data'][sw_rays*sweep, gate] >
-                        altitude_threshold):
+                if radar.gate_altitude["data"][sw_rays * sweep, gate] > altitude_threshold:
                     last_gate = gate
                     break
 
@@ -175,7 +183,7 @@ def get_vertical_vinculation_gate_map(radar,
                 # demandaria mucho tiempo de procesamiento ya que habria que
                 # armar un poligono de referencia (con n puntos) para la celda
                 # bajo test y un poligo para cada celda a comparar.
-                if radar.gate_latitude['data'][sw_rays*sweep, gate] > lat1:
+                if radar.gate_latitude["data"][sw_rays * sweep, gate] > lat1:
                     vvg_map[gate_ref, sweep] = gate
                     last_gate = gate
                     break
@@ -185,9 +193,9 @@ def get_vertical_vinculation_gate_map(radar,
     # =========================================================================
     if save_vvg_map:
         # si el archivo no existe
-        if not os.path.isfile(vvgm_filename+'.npy') or regenerate_flag:
+        if not os.path.isfile(vvgm_filename + ".npy") or regenerate_flag:
             np.save(vvgm_filename, vvg_map.filled())
-            logger.debug('vvg_map guardado en: ' + vvgm_filename)
+            logger.debug("vvg_map guardado en: " + vvgm_filename)
 
     # enmascaramos datos invalidos (np.nan)
     vvg_map = np.ma.masked_invalid(vvg_map)
@@ -195,9 +203,7 @@ def get_vertical_vinculation_gate_map(radar,
     return vvg_map
 
 
-def get_ordered_sweep_list(radar,
-                           use_sweeps_above:float=-5,
-                           sweeps_to_use=None):
+def get_ordered_sweep_list(radar, use_sweeps_above: float = -5, sweeps_to_use=None):
     """
     Función devuelve lista ordenada de barridos (en tuplas) y sw de refencia.
     Las tuplas tienen el siguiente formato:
@@ -253,7 +259,6 @@ def get_ordered_sweep_list(radar,
     # a mayor sin los sw descartados.
 
     if sw_ref is None:
-        raise ValueError('No se encontraron barridos superiores al ' +
-                         'limite fijado.')
+        raise ValueError("No se encontraron barridos superiores al " + "limite fijado.")
 
     return sw_tuples_za, sw_ref

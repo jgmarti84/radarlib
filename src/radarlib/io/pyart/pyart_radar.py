@@ -7,6 +7,7 @@ import numpy as np
 import numpy.ma as ma
 import pyart
 from pyart.core import Radar
+
 from radarlib.utils.names_utils import get_path_from_RMA_filename
 
 logger = logging.getLogger(__name__)
@@ -287,11 +288,11 @@ def save_radar_netcdf(radar, filenam_oute=None, path_out=None, logger_name=__nam
     logger = logging.getLogger(logger_name)
 
     if filenam_oute is None:
-        filenam_oute = radar.metadata['filename']
-    if not filenam_oute.endswith('.nc'):
-        filenam_oute = filenam_oute + '.nc'
+        filenam_oute = radar.metadata["filename"]
+    if not filenam_oute.endswith(".nc"):
+        filenam_oute = filenam_oute + ".nc"
 
-    if path_out is None or path_out == 'bbdd':
+    if path_out is None or path_out == "bbdd":
         path_out = get_path_from_RMA_filename(filename=filenam_oute, **kwargs)
     os.makedirs(path_out, exist_ok=True)
 
@@ -300,8 +301,10 @@ def save_radar_netcdf(radar, filenam_oute=None, path_out=None, logger_name=__nam
         pyart.io.cfradial.write_cfradial(fullname, radar)
         return fullname
     except Exception as e:
-        logger.error('Error al guardar NetCDF: ' + str(e))
+        logger.error("Error al guardar NetCDF: " + str(e))
         raise
+
+
 # def read_vol_RMA(
 #         filename, sweep=None, extract_sweeps=False,
 #         use_ftp=True, path_vol=None, debug=False, verbose=False,

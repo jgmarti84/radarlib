@@ -13,7 +13,7 @@ class TestBUFRDecodingConsistency:
     @pytest.fixture
     def sample_bufr_file(self):
         """Get sample BUFR file path."""
-ed        bufr_path = Path("tests/data/bufr")
+        bufr_path = Path("tests/data/bufr")
         if not bufr_path.exists():
             pytest.skip("No BUFR test data available")
 
