@@ -3,16 +3,13 @@
 import datetime
 import os
 from datetime import timezone
-from unittest.mock import patch
-
-import pytest
 
 from radarlib.utils import names_utils
 
 
 class TestGetTimeFromRMAFilename:
     """Test get_time_from_RMA_filename() function.
-    
+
     Note: The function expects format RADAR_ELEV_SWEEP_TIMESTAMP.ext (4 parts),
     but actual BUFR files use RADAR_ELEV_SWEEP_FIELD_TIMESTAMP.ext (5 parts).
     """
@@ -72,7 +69,7 @@ class TestGetTimeFromRMAFilename:
 
 class TestGetPathFromRMAFilename:
     """Test get_path_from_RMA_filename() function.
-    
+
     Note: This function expects 4-part format: RADAR_ELEV_SWEEP_TIMESTAMP.ext
     (without field name). The actual BUFR files have 5 parts but this function
     is not actively used in the codebase (all usage is commented out).
@@ -131,7 +128,7 @@ class TestGetPathFromRMAFilename:
 
 class TestGetNetcdfFilenameFromBufrFilename:
     """Test get_netcdf_filename_from_bufr_filename() function.
-    
+
     The function creates format: RADAR_ELEV_SWEEP_TIMESTAMP.nc from
     input format: RADAR_ELEV_SWEEP_FIELD_TIMESTAMP.ext
     (i.e., it skips the field name in the middle)
@@ -173,7 +170,7 @@ class TestGetNetcdfFilenameFromBufrFilename:
         """Test that timestamp is preserved in output."""
         bufr_filename = "RMA5_0315_1_DBZH_20240101T120000Z.bufr"
         result = names_utils.get_netcdf_filename_from_bufr_filename(bufr_filename)
-        
+
         assert "20240101T120000Z" in result
         assert result.endswith(".nc")
 

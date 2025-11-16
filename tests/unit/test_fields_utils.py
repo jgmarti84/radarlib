@@ -5,9 +5,6 @@ complex radar objects. Functions that work with PyART Radar objects are tested
 in integration tests.
 """
 
-import math
-
-import numpy as np
 import pytest
 
 from radarlib.utils import fields_utils
@@ -105,11 +102,11 @@ class TestGetRelativePolarCoordFromTwoGeoCoords:
         """Test that distance matches gps_to_distance()."""
         lon_ref, lat_ref = -64.0, -31.0
         lon_target, lat_target = -63.0, -30.0
-        
+
         angle, distance = fields_utils.get_relative_polar_coord_from_two_geo_coords(
             lon_ref, lat_ref, lon_target, lat_target
         )
-        
+
         direct_distance = fields_utils.gps_to_distance(lon_ref, lat_ref, lon_target, lat_target)
         # Distance should match (converted from km to m)
         assert distance == pytest.approx(direct_distance * 1000, rel=0.01)
@@ -122,7 +119,7 @@ class TestGetRelativePolarCoordFromTwoGeoCoords:
             (0.0, 0.0, 1.0, -1.0),
             (0.0, 0.0, -1.0, -1.0),
         ]
-        
+
         for lon_ref, lat_ref, lon_target, lat_target in test_cases:
             angle, distance = fields_utils.get_relative_polar_coord_from_two_geo_coords(
                 lon_ref, lat_ref, lon_target, lat_target
@@ -132,7 +129,7 @@ class TestGetRelativePolarCoordFromTwoGeoCoords:
 
 class TestGetGateDimensions:
     """Test get_radar_gate_dimensions() function.
-    
+
     Note: These are basic mathematical tests. Full testing with real Radar
     objects is done in integration tests.
     """
@@ -140,33 +137,33 @@ class TestGetGateDimensions:
     def test_function_signature(self):
         """Test that function exists and has expected signature."""
         # This is a smoke test to ensure the function exists
-        assert hasattr(fields_utils, 'get_radar_gate_dimensions')
+        assert hasattr(fields_utils, "get_radar_gate_dimensions")
         assert callable(fields_utils.get_radar_gate_dimensions)
 
 
 class TestGetLowestNsweep:
     """Test get_lowest_nsweep() function.
-    
+
     Note: Full testing requires PyART Radar objects which are tested in
     integration tests. This section is a placeholder for completeness.
     """
 
     def test_function_exists(self):
         """Test that function exists."""
-        assert hasattr(fields_utils, 'get_lowest_nsweep')
+        assert hasattr(fields_utils, "get_lowest_nsweep")
         assert callable(fields_utils.get_lowest_nsweep)
 
 
 class TestCalculateZdr:
     """Test calculate_zdr() function.
-    
+
     Note: Full testing requires PyART Radar objects which are tested in
     integration tests. This section is a placeholder for completeness.
     """
 
     def test_function_exists(self):
         """Test that function exists."""
-        assert hasattr(fields_utils, 'calculate_zdr')
+        assert hasattr(fields_utils, "calculate_zdr")
         assert callable(fields_utils.calculate_zdr)
 
 
@@ -175,10 +172,10 @@ class TestConstants:
 
     def test_line_large_constant(self):
         """Test that LINE_LARGE constant is defined."""
-        assert hasattr(fields_utils, 'LINE_LARGE')
+        assert hasattr(fields_utils, "LINE_LARGE")
         assert fields_utils.LINE_LARGE == 90
 
     def test_line_format_constant(self):
         """Test that LINE_FORMAT constant is defined."""
-        assert hasattr(fields_utils, 'LINE_FORMAT')
+        assert hasattr(fields_utils, "LINE_FORMAT")
         assert fields_utils.LINE_FORMAT == "90.90"

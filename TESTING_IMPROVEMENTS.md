@@ -72,7 +72,7 @@ Tests for `src/radarlib/pyart_defaults.py` field definitions:
 - ✅ `src/radarlib/utils/names_utils.py` - All filename utilities
 - ✅ `src/radarlib/pyart_defaults.py` - All testable functions
 
-### Partially Covered Modules (New)  
+### Partially Covered Modules (New)
 - ✅ `src/radarlib/utils/fields_utils.py` - Core geographic functions
   - Note: Functions requiring PyART Radar objects are covered by integration tests
 

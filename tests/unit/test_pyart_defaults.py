@@ -1,7 +1,5 @@
 """Unit tests for radarlib.pyart_defaults module functions."""
 
-import pytest
-
 from radarlib import pyart_defaults
 
 
@@ -17,7 +15,7 @@ class TestVelocityLimit:
         """Test default velocity limit with selection parameter."""
         result = pyart_defaults.velocity_limit(container=None, selection=0)
         assert result == (-30.0, 30.0)
-        
+
         result = pyart_defaults.velocity_limit(container=None, selection=5)
         assert result == (-30.0, 30.0)
 
@@ -47,7 +45,7 @@ class TestSpectrumWidthLimit:
         """Test default spectrum width limit with selection parameter."""
         result = pyart_defaults.spectrum_width_limit(container=None, selection=0)
         assert result == (0, 30.0)
-        
+
         result = pyart_defaults.spectrum_width_limit(container=None, selection=5)
         assert result == (0, 30.0)
 
@@ -73,31 +71,31 @@ class TestModuleConstants:
 
     def test_fill_value_constant(self):
         """Test that fill_value constant is defined."""
-        assert hasattr(pyart_defaults, 'fill_value')
+        assert hasattr(pyart_defaults, "fill_value")
         assert pyart_defaults.fill_value == -9999.0
 
     def test_fill_value_uppercase(self):
         """Test that FILL_VALUE constant is defined."""
-        assert hasattr(pyart_defaults, 'FILL_VALUE')
+        assert hasattr(pyart_defaults, "FILL_VALUE")
         assert pyart_defaults.FILL_VALUE == pyart_defaults.fill_value
 
     def test_line_large_constant(self):
         """Test that LINE_LARGE constant is defined."""
-        assert hasattr(pyart_defaults, 'LINE_LARGE')
+        assert hasattr(pyart_defaults, "LINE_LARGE")
         assert pyart_defaults.LINE_LARGE == 90
 
     def test_line_format_constant(self):
         """Test that LINE_FORMAT constant is defined."""
-        assert hasattr(pyart_defaults, 'LINE_FORMAT')
+        assert hasattr(pyart_defaults, "LINE_FORMAT")
         assert pyart_defaults.LINE_FORMAT == "90.90"
 
     def test_field_name_constants(self):
         """Test that basic field name constants are defined."""
-        assert hasattr(pyart_defaults, 'reflectivity')
-        assert hasattr(pyart_defaults, 'velocity')
-        assert hasattr(pyart_defaults, 'spectrum_width')
-        assert hasattr(pyart_defaults, 'differential_reflectivity')
-        assert hasattr(pyart_defaults, 'cross_correlation_ratio')
+        assert hasattr(pyart_defaults, "reflectivity")
+        assert hasattr(pyart_defaults, "velocity")
+        assert hasattr(pyart_defaults, "spectrum_width")
+        assert hasattr(pyart_defaults, "differential_reflectivity")
+        assert hasattr(pyart_defaults, "cross_correlation_ratio")
 
 
 class TestDefaultFieldNames:
@@ -105,7 +103,7 @@ class TestDefaultFieldNames:
 
     def test_default_field_names_exists(self):
         """Test that DEFAULT_FIELD_NAMES dictionary exists."""
-        assert hasattr(pyart_defaults, 'DEFAULT_FIELD_NAMES')
+        assert hasattr(pyart_defaults, "DEFAULT_FIELD_NAMES")
         assert isinstance(pyart_defaults.DEFAULT_FIELD_NAMES, dict)
 
     def test_default_field_names_not_empty(self):
@@ -114,13 +112,13 @@ class TestDefaultFieldNames:
 
     def test_reflectivity_field_mapping(self):
         """Test that reflectivity field is mapped."""
-        assert 'reflectivity' in pyart_defaults.DEFAULT_FIELD_NAMES
-        assert pyart_defaults.DEFAULT_FIELD_NAMES['reflectivity'] == pyart_defaults.reflectivity
+        assert "reflectivity" in pyart_defaults.DEFAULT_FIELD_NAMES
+        assert pyart_defaults.DEFAULT_FIELD_NAMES["reflectivity"] == pyart_defaults.reflectivity
 
     def test_velocity_field_mapping(self):
         """Test that velocity field is mapped."""
-        assert 'velocity' in pyart_defaults.DEFAULT_FIELD_NAMES
-        assert pyart_defaults.DEFAULT_FIELD_NAMES['velocity'] == pyart_defaults.velocity
+        assert "velocity" in pyart_defaults.DEFAULT_FIELD_NAMES
+        assert pyart_defaults.DEFAULT_FIELD_NAMES["velocity"] == pyart_defaults.velocity
 
 
 class TestDefaultFieldColormap:
@@ -128,7 +126,7 @@ class TestDefaultFieldColormap:
 
     def test_default_field_colormap_exists(self):
         """Test that DEFAULT_FIELD_COLORMAP dictionary exists."""
-        assert hasattr(pyart_defaults, 'DEFAULT_FIELD_COLORMAP')
+        assert hasattr(pyart_defaults, "DEFAULT_FIELD_COLORMAP")
         assert isinstance(pyart_defaults.DEFAULT_FIELD_COLORMAP, dict)
 
     def test_default_field_colormap_not_empty(self):
@@ -146,7 +144,7 @@ class TestDefaultFieldLimits:
 
     def test_default_field_limits_exists(self):
         """Test that DEFAULT_FIELD_LIMITS dictionary exists."""
-        assert hasattr(pyart_defaults, 'DEFAULT_FIELD_LIMITS')
+        assert hasattr(pyart_defaults, "DEFAULT_FIELD_LIMITS")
         assert isinstance(pyart_defaults.DEFAULT_FIELD_LIMITS, dict)
 
     def test_default_field_limits_not_empty(self):
@@ -171,7 +169,7 @@ class TestDefaultMetadata:
 
     def test_default_metadata_exists(self):
         """Test that DEFAULT_METADATA dictionary exists."""
-        assert hasattr(pyart_defaults, 'DEFAULT_METADATA')
+        assert hasattr(pyart_defaults, "DEFAULT_METADATA")
         assert isinstance(pyart_defaults.DEFAULT_METADATA, dict)
 
     def test_default_metadata_not_empty(self):
@@ -189,7 +187,7 @@ class TestFieldMappings:
 
     def test_field_mappings_exists(self):
         """Test that FIELD_MAPPINGS dictionary exists."""
-        assert hasattr(pyart_defaults, 'FIELD_MAPPINGS')
+        assert hasattr(pyart_defaults, "FIELD_MAPPINGS")
         assert isinstance(pyart_defaults.FIELD_MAPPINGS, dict)
 
     def test_field_mappings_not_empty(self):
@@ -198,6 +196,6 @@ class TestFieldMappings:
 
     def test_expected_mapping_keys(self):
         """Test that expected mapping keys exist."""
-        expected_keys = ['sigmet', 'nexrad_archive', 'cfradial', 'uf']
+        expected_keys = ["sigmet", "nexrad_archive", "cfradial", "uf"]
         for key in expected_keys:
             assert key in pyart_defaults.FIELD_MAPPINGS
