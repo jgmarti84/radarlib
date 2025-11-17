@@ -34,7 +34,7 @@ async def download_files():
     async with AsyncFTPClient('ftp.example.com', 'user', 'pass') as client:
         # List BUFR files
         files = await client.list_files('/radar/data', pattern='*.BUFR')
-        
+
         # Download files
         downloaded = await client.download_files(files[:5], '/local/data', max_concurrent=3)
         print(f"Downloaded {len(downloaded)} files")
@@ -59,7 +59,7 @@ async def run_daemon():
         poll_interval=60,  # Check every 60 seconds
         max_concurrent_downloads=5
     )
-    
+
     # Create and run daemon
     daemon = FTPDaemon(config)
     await daemon.run()  # Runs indefinitely
@@ -89,7 +89,7 @@ async def run_with_processing():
         local_dir='/data/radar/incoming',
         poll_interval=30
     )
-    
+
     # Create daemon with callback
     daemon = FTPDaemon(config, on_file_downloaded=process_file)
     await daemon.run()

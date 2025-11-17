@@ -50,7 +50,7 @@ async def run_daemon():
         poll_interval=60,  # Check every 60 seconds
         max_concurrent_downloads=5
     )
-    
+
     daemon = FTPDaemon(config)
     await daemon.run()  # Runs indefinitely
 

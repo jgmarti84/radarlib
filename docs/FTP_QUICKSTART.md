@@ -31,7 +31,7 @@ async def download_once():
         # List files
         files = await client.list_files('/radar/data', pattern='*.BUFR')
         print(f"Found {len(files)} files")
-        
+
         # Download files
         downloaded = await client.download_files(
             files[:5],  # First 5 files
@@ -61,7 +61,7 @@ async def run_daemon():
         poll_interval=60,  # Check every 60 seconds
         max_concurrent_downloads=5
     )
-    
+
     daemon = FTPDaemon(config)
     await daemon.run()  # Runs indefinitely
 
@@ -81,10 +81,10 @@ from radarlib.io.bufr import bufr_to_dict
 def process_file(local_path: str):
     """Process each downloaded file"""
     print(f"Processing: {local_path}")
-    
+
     # Decode BUFR file
     bufr_dict = bufr_to_dict(local_path)
-    
+
     # Process the data...
     print(f"✓ Processed {local_path}")
 
@@ -97,7 +97,7 @@ async def run_with_processing():
         local_dir='/local/data',
         poll_interval=30
     )
-    
+
     # Create daemon with callback
     daemon = FTPDaemon(config, on_file_downloaded=process_file)
     await daemon.run()
@@ -130,7 +130,7 @@ async def main():
         poll_interval=int(os.getenv('POLL_INTERVAL', '60')),
         max_concurrent_downloads=int(os.getenv('MAX_DOWNLOADS', '5'))
     )
-    
+
     daemon = FTPDaemon(config)
     await daemon.run()
 
@@ -241,7 +241,7 @@ await daemon.run()
 class ProgressMonitor:
     def __init__(self):
         self.count = 0
-        
+
     def on_download(self, path: str):
         self.count += 1
         print(f"Progress: {self.count} files downloaded")
