@@ -28,6 +28,9 @@ DEFAULTS: Dict[str, Any] = {
     "COLMAX_WRAD_UMBRAL": 4.6,
     "COLMAX_TDR_FILTER": True,
     "COLMAX_TDR_UMBRAL": 8.5,
+    "FTP_HOST": os.environ.get("FTP_HOST", "200.16.116.24"),
+    "FTP_USER": os.environ.get("FTP_USER", "IMontamat"),
+    "FTP_PASS": os.environ.get("FTP_PASS", "1m0nt"),
 }
 
 _config: Dict[str, Any] = DEFAULTS.copy()
@@ -82,10 +85,9 @@ COLMAX_WRAD_FILTER: bool = get("COLMAX_WRAD_FILTER")
 COLMAX_WRAD_UMBRAL: float = get("COLMAX_WRAD_UMBRAL")
 COLMAX_TDR_FILTER: bool = get("COLMAX_TDR_FILTER")
 COLMAX_TDR_UMBRAL: float = get("COLMAX_TDR_UMBRAL")
-
-# MAX_SAMPLES: Optional[int] = get("MAX_SAMPLES")
-# DEFAULT_SAMPLE_VALUE: Any = get("DEFAULT_SAMPLE_VALUE")
-# DEFAULT_TIMEOUT: float = float(get("DEFAULT_TIMEOUT", DEFAULTS["DEFAULT_TIMEOUT"]))
+FTP_HOST: str = get("FTP_HOST")
+FTP_USER: str = get("FTP_USER")
+FTP_PASS: str = get("FTP_PASS")
 
 
 def reload(path: Optional[str] = None) -> None:
