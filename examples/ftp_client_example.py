@@ -56,13 +56,13 @@ async def example_basic_client():
 
         # Download first file (if any)
         if files:
-            logger.info(f"\nDownloading first file...")
+            logger.info("\nDownloading first file...")
             local_file = await client.download_file(files[0], str(local_dir))
             logger.info(f"Downloaded to: {local_file}")
 
             # Download multiple files concurrently (up to 3 files)
             if len(files) > 1:
-                logger.info(f"\nDownloading up to 3 files concurrently...")
+                logger.info("\nDownloading up to 3 files concurrently...")
                 files_to_download = files[1:4]  # Get next 3 files
                 downloaded = await client.download_files(files_to_download, str(local_dir), max_concurrent=3)
 
@@ -84,9 +84,7 @@ async def example_manual_connection():
     logger.info("=" * 80)
 
     # Create client instance
-    client = AsyncFTPClient(
-        host="ftp.example.com", username="your_username", password="your_password", logger=logger
-    )
+    client = AsyncFTPClient(host="ftp.example.com", username="your_username", password="your_password", logger=logger)
 
     try:
         # Connect manually

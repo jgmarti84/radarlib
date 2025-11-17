@@ -79,9 +79,7 @@ class AsyncFTPClient:
             await self._client.quit()
             self._client = None
 
-    async def list_files(
-        self, remote_path: str, pattern: str = "*.BUFR", recursive: bool = False
-    ) -> List[str]:
+    async def list_files(self, remote_path: str, pattern: str = "*.BUFR", recursive: bool = False) -> List[str]:
         """
         List files in a remote directory.
 
@@ -155,9 +153,7 @@ class AsyncFTPClient:
             self.logger.error(f"Error downloading {remote_path}: {e}")
             raise
 
-    async def download_files(
-        self, remote_files: List[str], local_dir: str, max_concurrent: int = 5
-    ) -> List[str]:
+    async def download_files(self, remote_files: List[str], local_dir: str, max_concurrent: int = 5) -> List[str]:
         """
         Download multiple files concurrently from the FTP server.
 

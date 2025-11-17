@@ -4,9 +4,8 @@ Unit tests for the async FTP client.
 These tests use mocking to avoid requiring an actual FTP server.
 """
 
-import asyncio
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -63,6 +62,7 @@ async def test_client_context_manager(mock_aioftp_client):
 @pytest.mark.asyncio
 async def test_list_files_bufr_pattern(mock_aioftp_client):
     """Test listing BUFR files with pattern matching."""
+
     # Mock file listing
     async def mock_list(path, recursive=False):
         files = [

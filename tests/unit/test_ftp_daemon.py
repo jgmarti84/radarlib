@@ -6,7 +6,7 @@ These tests use mocking to avoid requiring an actual FTP server.
 
 import asyncio
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, call, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -132,7 +132,7 @@ async def test_daemon_ignores_already_processed_files(daemon_config, mock_ftp_cl
     local_dir = Path(daemon_config.local_dir)
 
     mock_ftp_client.list_files = AsyncMock(return_value=remote_files)
-    
+
     # First call to download_files returns successfully downloaded files
     first_download = AsyncMock(return_value=[str(local_dir / "file1.BUFR"), str(local_dir / "file2.BUFR")])
     mock_ftp_client.download_files = first_download
@@ -149,12 +149,11 @@ async def test_daemon_ignores_already_processed_files(daemon_config, mock_ftp_cl
         # download_files should not be called at all since there are no new files
         second_download = AsyncMock()
         mock_ftp_client.download_files = second_download
-        
+
         count2 = await daemon.run_once()
         assert count2 == 0
         # Verify download_files was NOT called since no new files were found
         assert second_download.call_count == 0
-
 
 
 @pytest.mark.asyncio
