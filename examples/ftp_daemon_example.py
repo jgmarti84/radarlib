@@ -98,7 +98,7 @@ def check_status_example():
 
     # Show some recent downloads
     downloaded_files = tracker.get_downloaded_files()
-    print(f"\nRecent downloads (showing first 10):")
+    print("\nRecent downloads (showing first 10):")
     for i, filename in enumerate(list(downloaded_files)[:10], 1):
         info = tracker.get_file_info(filename)
         print(f"  {i}. {filename}")
@@ -129,16 +129,14 @@ def manual_cycle_example():
     )
 
     daemon = FTPDaemon(daemon_config)
-    daemon._download_semaphore = asyncio.Semaphore(
-        daemon_config.max_concurrent_downloads
-    )
+    daemon._download_semaphore = asyncio.Semaphore(daemon_config.max_concurrent_downloads)
 
     print("\nRunning single check cycle...")
 
     async def run_once():
         await daemon._check_and_download_new_files()
         stats = daemon.get_stats()
-        print(f"\nCheck complete!")
+        print("\nCheck complete!")
         print(f"Total files tracked: {stats['total_downloaded']}")
 
     asyncio.run(run_once())

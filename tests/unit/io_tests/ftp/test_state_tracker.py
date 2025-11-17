@@ -2,9 +2,6 @@
 
 import json
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
-
-import pytest
 
 from radarlib.io.ftp import FileStateTracker
 
@@ -26,11 +23,7 @@ class TestFileStateTracker:
 
         # Create existing state
         existing_state = {
-            "file1.BUFR": {
-                "remote_path": "/L2/file1.BUFR",
-                "downloaded_at": "2024-01-01T12:00:00",
-                "metadata": {}
-            }
+            "file1.BUFR": {"remote_path": "/L2/file1.BUFR", "downloaded_at": "2024-01-01T12:00:00", "metadata": {}}
         }
         with open(state_file, "w") as f:
             json.dump(existing_state, f)
@@ -62,11 +55,7 @@ class TestFileStateTracker:
         state_file = tmp_path / "state.json"
         tracker = FileStateTracker(state_file)
 
-        metadata = {
-            "radar": "RMA1",
-            "field": "DBZH",
-            "timestamp": "20240101T120000Z"
-        }
+        metadata = {"radar": "RMA1", "field": "DBZH", "timestamp": "20240101T120000Z"}
 
         tracker.mark_downloaded("file1.BUFR", "/L2/file1.BUFR", metadata)
 
@@ -165,21 +154,9 @@ class TestFileStateTracker:
         week_ago = now - timedelta(days=7)
 
         tracker._state = {
-            "file1.BUFR": {
-                "remote_path": "/L2/file1.BUFR",
-                "downloaded_at": now.isoformat(),
-                "metadata": {}
-            },
-            "file2.BUFR": {
-                "remote_path": "/L2/file2.BUFR",
-                "downloaded_at": yesterday.isoformat(),
-                "metadata": {}
-            },
-            "file3.BUFR": {
-                "remote_path": "/L2/file3.BUFR",
-                "downloaded_at": week_ago.isoformat(),
-                "metadata": {}
-            }
+            "file1.BUFR": {"remote_path": "/L2/file1.BUFR", "downloaded_at": now.isoformat(), "metadata": {}},
+            "file2.BUFR": {"remote_path": "/L2/file2.BUFR", "downloaded_at": yesterday.isoformat(), "metadata": {}},
+            "file3.BUFR": {"remote_path": "/L2/file3.BUFR", "downloaded_at": week_ago.isoformat(), "metadata": {}},
         }
 
         # Get files from last 2 days

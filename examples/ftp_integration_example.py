@@ -14,7 +14,7 @@ import asyncio
 from pathlib import Path
 
 from radarlib import config
-from radarlib.io.ftp import FTPClient, FTPDaemon, FTPDaemonConfig, FileStateTracker
+from radarlib.io.ftp import FileStateTracker, FTPClient, FTPDaemon, FTPDaemonConfig
 
 
 def simple_download_and_process():
@@ -105,9 +105,7 @@ class BUFRProcessingDaemon(FTPDaemon):
 
             try:
                 print(f"Processing {filename}...")
-                await asyncio.get_event_loop().run_in_executor(
-                    None, self.processing_callback, local_path
-                )
+                await asyncio.get_event_loop().run_in_executor(None, self.processing_callback, local_path)
                 print(f"Processed {filename}")
             except Exception as e:
                 print(f"Error processing {filename}: {e}")
@@ -138,10 +136,7 @@ def daemon_with_processing():
     )
 
     # Create processing daemon
-    daemon = BUFRProcessingDaemon(
-        daemon_config,
-        processing_callback=process_bufr_file
-    )
+    daemon = BUFRProcessingDaemon(daemon_config, processing_callback=process_bufr_file)
 
     print("\nDaemon configured with automatic BUFR processing")
     print("Press Ctrl+C to stop\n")
@@ -236,8 +231,7 @@ def selective_download():
                 file_info = parse_ftp_path(full_path)
 
                 # Filter by radar and field
-                if (file_info["radar_code"] == target_radar and
-                    file_info["field_type"] == target_field):
+                if file_info["radar_code"] == target_radar and file_info["field_type"] == target_field:
 
                     print(f"\nDownloading: {filename}")
                     print(f"  Radar: {file_info['radar_code']}")

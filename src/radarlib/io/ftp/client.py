@@ -5,11 +5,11 @@ import ftplib
 import logging
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Generator, List, Optional
+from typing import Generator, List
 
 from .ftp import (
-    FTPActionError,
     FTP_IsADirectoryError,
+    FTPActionError,
     ftp_connection_manager,
 )
 
@@ -88,9 +88,7 @@ class FTPClient:
             error_message = f"Failed to list directory '{remote_dir}': {e}"
             raise FTPActionError(error_message) from e
 
-    def download_file(
-        self, remote_path: str, local_path: Path, verify_not_directory: bool = True
-    ) -> None:
+    def download_file(self, remote_path: str, local_path: Path, verify_not_directory: bool = True) -> None:
         """
         Download a single file from the FTP server.
 
@@ -120,9 +118,7 @@ class FTPClient:
                     try:
                         ftp.cwd(remote_filename)
                         ftp.cwd("..")
-                        raise FTP_IsADirectoryError(
-                            f"Path '{remote_path}' is a directory, not a file"
-                        )
+                        raise FTP_IsADirectoryError(f"Path '{remote_path}' is a directory, not a file")
                     except ftplib.error_perm:
                         # Expected error - it's a file, not a directory
                         pass
@@ -140,9 +136,7 @@ class FTPClient:
             error_message = f"Failed to write to '{local_path}': {e}"
             raise IOError(error_message) from e
 
-    def download_files(
-        self, remote_dir: str, filenames: List[str], local_dir: Path
-    ) -> None:
+    def download_files(self, remote_dir: str, filenames: List[str], local_dir: Path) -> None:
         """
         Download multiple files from the same remote directory.
 
@@ -171,9 +165,7 @@ class FTPClient:
                     try:
                         ftp.cwd(filename)
                         ftp.cwd("..")
-                        raise FTP_IsADirectoryError(
-                            f"Path '{filename}' is a directory, not a file"
-                        )
+                        raise FTP_IsADirectoryError(f"Path '{filename}' is a directory, not a file")
                     except ftplib.error_perm:
                         pass
 

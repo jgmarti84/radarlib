@@ -1,12 +1,11 @@
 """Integration tests for FTP client with mocked FTP server."""
 
 import ftplib
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from radarlib.io.ftp import FTPClient, FileStateTracker
+from radarlib.io.ftp import FileStateTracker, FTPClient
 
 
 @pytest.mark.integration
@@ -80,8 +79,6 @@ class TestFTPClientIntegration:
     @patch("radarlib.io.ftp.ftp.ftplib.FTP")
     def test_selective_download_by_field(self, mock_ftp_class, tmp_path):
         """Test downloading only specific field types."""
-        from radarlib.io.ftp.ftp import parse_ftp_path
-
         # Setup mock
         mock_ftp = MagicMock()
         mock_ftp.nlst.return_value = [

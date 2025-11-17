@@ -79,7 +79,7 @@ tracker = FileStateTracker(Path('./state.json'))
 
 if not tracker.is_downloaded('file.BUFR'):
     # Download file...
-    tracker.mark_downloaded('file.BUFR', '/remote/path/file.BUFR', 
+    tracker.mark_downloaded('file.BUFR', '/remote/path/file.BUFR',
                            metadata={'radar': 'RMA1', 'field': 'DBZH'})
 ```
 

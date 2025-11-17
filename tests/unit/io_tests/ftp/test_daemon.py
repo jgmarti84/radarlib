@@ -1,8 +1,7 @@
 """Tests for FTP daemon."""
 
 import asyncio
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -20,7 +19,7 @@ def daemon_config(tmp_path):
         local_download_dir=tmp_path / "downloads",
         state_file=tmp_path / "state.json",
         poll_interval=1,  # Short interval for testing
-        max_concurrent_downloads=2
+        max_concurrent_downloads=2,
     )
 
 
@@ -35,7 +34,7 @@ class TestFTPDaemonConfig:
             password="pass",
             remote_base_path="/L2",
             local_download_dir=tmp_path / "downloads",
-            state_file=tmp_path / "state.json"
+            state_file=tmp_path / "state.json",
         )
 
         assert config.host == "ftp.example.com"
@@ -58,7 +57,7 @@ class TestFTPDaemon:
 
     def test_init_creates_download_dir(self, daemon_config):
         """Test that daemon creates download directory."""
-        daemon = FTPDaemon(daemon_config)
+        _daemon = FTPDaemon(daemon_config)  # noqa: F841
 
         assert daemon_config.local_download_dir.exists()
 
@@ -68,11 +67,7 @@ class TestFTPDaemon:
         """Test discovering new files."""
         # Setup mocks
         mock_client = MagicMock()
-        mock_client.list_files.return_value = [
-            "file1.BUFR",
-            "file2.BUFR",
-            "file3.txt"  # Not a BUFR file
-        ]
+        mock_client.list_files.return_value = ["file1.BUFR", "file2.BUFR", "file3.txt"]  # Not a BUFR file
         mock_client_class.return_value = mock_client
 
         daemon = FTPDaemon(daemon_config)

@@ -74,12 +74,7 @@ class FileStateTracker:
         """
         return filename in self._state
 
-    def mark_downloaded(
-        self,
-        filename: str,
-        remote_path: str,
-        metadata: Optional[Dict] = None
-    ) -> None:
+    def mark_downloaded(self, filename: str, remote_path: str, metadata: Optional[Dict] = None) -> None:
         """
         Mark a file as downloaded.
 
@@ -91,7 +86,7 @@ class FileStateTracker:
         self._state[filename] = {
             "remote_path": remote_path,
             "downloaded_at": datetime.now(timezone.utc).isoformat(),
-            "metadata": metadata or {}
+            "metadata": metadata or {},
         }
         self._save_state()
         logger.debug(f"Marked '{filename}' as downloaded")
@@ -135,9 +130,7 @@ class FileStateTracker:
             self._save_state()
             logger.debug(f"Removed '{filename}' from state")
 
-    def get_files_by_date_range(
-        self, start_date: datetime, end_date: datetime
-    ) -> List[str]:
+    def get_files_by_date_range(self, start_date: datetime, end_date: datetime) -> List[str]:
         """
         Get files downloaded within a date range.
 

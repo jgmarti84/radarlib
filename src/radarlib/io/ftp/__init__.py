@@ -5,8 +5,8 @@ FTP module for interacting with FTP servers and managing BUFR file downloads.
 from .client import FTPClient
 from .daemon import FTPDaemon, FTPDaemonConfig
 from .ftp import (
-    FTPActionError,
     FTP_IsADirectoryError,
+    FTPActionError,
     build_ftp_path,
     download_file_from_ftp,
     download_ftp_folder,

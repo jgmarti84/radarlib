@@ -2,11 +2,11 @@
 
 import ftplib
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, mock_open, patch
+from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
-from radarlib.io.ftp import FTPActionError, FTPClient, FTP_IsADirectoryError
+from radarlib.io.ftp import FTP_IsADirectoryError, FTPActionError, FTPClient
 
 
 class TestFTPClient:
@@ -121,11 +121,7 @@ class TestFTPClient:
         mock_conn_mgr.return_value.__enter__.return_value = mock_ftp
 
         client = FTPClient(host="ftp.example.com", user="user", password="pass")
-        client.download_files(
-            "/L2/RMA1",
-            ["file1.BUFR", "file2.BUFR"],
-            Path("/local")
-        )
+        client.download_files("/L2/RMA1", ["file1.BUFR", "file2.BUFR"], Path("/local"))
 
         # Verify retrbinary called for each file
         assert mock_ftp.retrbinary.call_count == 2

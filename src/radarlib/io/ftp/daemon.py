@@ -5,7 +5,7 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Set
+from typing import List, Optional
 
 from .client import FTPClient
 from .state_tracker import FileStateTracker
@@ -158,9 +158,7 @@ class FTPDaemon:
 
         try:
             # List files in the remote directory
-            files = await loop.run_in_executor(
-                None, self.client.list_files, self.config.remote_base_path
-            )
+            files = await loop.run_in_executor(None, self.client.list_files, self.config.remote_base_path)
 
             # Filter for BUFR files that haven't been downloaded
             for item in files:
@@ -197,9 +195,7 @@ class FTPDaemon:
 
                 # Run synchronous FTP operation in executor
                 loop = asyncio.get_event_loop()
-                await loop.run_in_executor(
-                    None, self.client.download_file, remote_path, local_path
-                )
+                await loop.run_in_executor(None, self.client.download_file, remote_path, local_path)
 
                 # Mark as downloaded
                 self.state_tracker.mark_downloaded(filename, remote_path)
@@ -228,5 +224,5 @@ class FTPDaemon:
                 "remote_path": self.config.remote_base_path,
                 "local_dir": str(self.config.local_download_dir),
                 "poll_interval": self.config.poll_interval,
-            }
+            },
         }
