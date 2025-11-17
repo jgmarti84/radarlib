@@ -1,5 +1,37 @@
 """
-FTP module for interacting with FTP servers.
+FTP module for interacting with FTP servers and managing BUFR file downloads.
 """
 
-__all__ = ["bufr_to_dict", "bufr_to_pyart"]
+from .client import FTPClient
+from .daemon import FTPDaemon, FTPDaemonConfig
+from .ftp import (
+    FTPActionError,
+    FTP_IsADirectoryError,
+    build_ftp_path,
+    download_file_from_ftp,
+    download_ftp_folder,
+    download_multiple_files_from_ftp,
+    ftp_connection_manager,
+    list_files_in_remote_dir,
+    parse_ftp_path,
+)
+from .state_tracker import FileStateTracker
+
+__all__ = [
+    # Client and daemon
+    "FTPClient",
+    "FTPDaemon",
+    "FTPDaemonConfig",
+    "FileStateTracker",
+    # Legacy functions
+    "ftp_connection_manager",
+    "list_files_in_remote_dir",
+    "download_file_from_ftp",
+    "download_multiple_files_from_ftp",
+    "download_ftp_folder",
+    "build_ftp_path",
+    "parse_ftp_path",
+    # Exceptions
+    "FTPActionError",
+    "FTP_IsADirectoryError",
+]
