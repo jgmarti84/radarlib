@@ -38,6 +38,7 @@ The FTP daemon service allows you to continuously monitor an FTP server for new 
 
 ```python
 import asyncio
+from pathlib import Path
 from radarlib.io.ftp import FTPDaemon, FTPDaemonConfig
 
 async def run_daemon():
@@ -45,8 +46,9 @@ async def run_daemon():
         host='ftp.example.com',
         username='user',
         password='pass',
-        remote_path='/radar/data',
-        local_dir='/data/radar/incoming',
+        remote_base_path='/L2/radar',
+        local_download_dir=Path('./downloads'),
+        state_file=Path('./download_state.json'),
         poll_interval=60,  # Check every 60 seconds
         max_concurrent_downloads=5
     )
@@ -55,6 +57,26 @@ async def run_daemon():
     await daemon.run()  # Runs indefinitely
 
 asyncio.run(run_daemon())
+```
+
+### Basic FTP Client
+
+For simple one-time downloads or custom workflows:
+
+```python
+from pathlib import Path
+from radarlib.io.ftp import FTPClient
+
+client = FTPClient(host='ftp.example.com', user='user', password='pass')
+
+# List files
+files = client.list_files('/L2/RMA1/2024/01/01')
+
+# Download a file
+client.download_file('/L2/RMA1/file.BUFR', Path('./local.BUFR'))
+
+# Download multiple files
+client.download_files('/L2/RMA1', ['file1.BUFR', 'file2.BUFR'], Path('./downloads'))
 ```
 
 For more examples, see:
