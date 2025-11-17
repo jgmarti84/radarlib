@@ -23,10 +23,12 @@ def test_end_to_end_bufr_to_pyart(tmp_save_path: Path):
         pytest.skip("No BUFR test files found")
 
     from radarlib.io.bufr.pyart_writer import bufr_paths_to_pyart
+    from radarlib.utils.names_utils import get_netcdf_filename_from_bufr_filename
 
     results = bufr_paths_to_pyart([str(bufr_files[0])], root_resources=None, save_path=tmp_save_path)
     assert results
-    out_file = tmp_save_path / f"{bufr_files[0].stem}.nc"
+    netcdf_fname = get_netcdf_filename_from_bufr_filename(str(bufr_files[0].stem))
+    out_file = tmp_save_path / netcdf_fname
     assert out_file.exists()
 
 
