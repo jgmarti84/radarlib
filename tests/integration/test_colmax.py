@@ -7,10 +7,10 @@ from pathlib import Path
 
 import pytest
 
-from radarlib.io.pyart.colmax import generate_colmax, _compute_colmax, _compute_colmax_optimized
+from radarlib import config
+from radarlib.io.pyart.colmax import _compute_colmax, _compute_colmax_optimized, generate_colmax
 from radarlib.io.pyart.pyart_radar import estandarizar_campos_RMA, read_radar_netcdf
 from radarlib.io.pyart.vvg import get_ordered_sweep_list, get_vertical_vinculation_gate_map
-from radarlib import config
 
 
 @pytest.fixture
@@ -181,8 +181,6 @@ class TestColmaxPerformance:
         radar = radar_object
 
         # Prepare common inputs for both implementations
-        from copy import deepcopy
-
         source_field = "DBZH" if "DBZH" in radar.fields else list(radar.fields.keys())[0]
 
         # Create filtered field for testing
@@ -230,7 +228,7 @@ class TestColmaxPerformance:
         # Assert optimized is faster (with some tolerance for variance)
         # We expect at least some speedup, but allow for measurement variance
         speedup_ratio = time_old / time_optimized
-        print(f"\nPerformance comparison (with filters):")
+        print("\nPerformance comparison (with filters):")
         print(f"  Old implementation: {time_old:.4f}s")
         print(f"  Optimized implementation: {time_optimized:.4f}s")
         print(f"  Speedup ratio: {speedup_ratio:.2f}x")
@@ -238,7 +236,7 @@ class TestColmaxPerformance:
         # The optimized version should be faster or at least not significantly slower
         # Allow for up to 20% slower due to measurement variance, but ideally faster
         assert time_optimized <= time_old * 1.2, (
-            f"Optimized implementation should not be significantly slower. "
+            "Optimized implementation should not be significantly slower. "
             f"Old: {time_old:.4f}s, Optimized: {time_optimized:.4f}s"
         )
 
@@ -302,14 +300,14 @@ class TestColmaxPerformance:
 
         # Assert optimized is faster
         speedup_ratio = time_old / time_optimized
-        print(f"\nPerformance comparison (no filters):")
+        print("\nPerformance comparison (no filters):")
         print(f"  Old implementation: {time_old:.4f}s")
         print(f"  Optimized implementation: {time_optimized:.4f}s")
         print(f"  Speedup ratio: {speedup_ratio:.2f}x")
 
         # The optimized version should be faster or at least not significantly slower
         assert time_optimized <= time_old * 1.2, (
-            f"Optimized implementation should not be significantly slower. "
+            "Optimized implementation should not be significantly slower. "
             f"Old: {time_old:.4f}s, Optimized: {time_optimized:.4f}s"
         )
 
