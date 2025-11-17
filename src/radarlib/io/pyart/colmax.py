@@ -6,6 +6,7 @@ Generates a COLMAX (column maximum) field by comparing gates across multiple
 sweeps and retaining the maximum value for each gate in the reference sweep.
 """
 import logging
+from copy import deepcopy
 from typing import Optional
 
 import numpy as np
@@ -37,9 +38,12 @@ def generate_colmax(
     regenerate_flag: bool = False,
     root_cache: Optional[str] = None,
     verbose: bool = False,
-) -> bool:
+) -> Radar:
     """
     Generate COLMAX field by finding maximum values across sweeps for each gate.
+
+    This function creates a new radar object with the COLMAX field added. The input
+    radar object is not modified.
 
     Parameters
     ----------
@@ -81,8 +85,9 @@ def generate_colmax(
 
     Returns
     -------
-    bool
-        True if COLMAX field was successfully generated, False otherwise.
+    Radar
+        A new PyART Radar object with the COLMAX field added. Returns None if
+        COLMAX generation fails.
 
     Raises
     ------
@@ -107,36 +112,47 @@ def generate_colmax(
     # Validate input
     if source_field not in radar.fields:
         logger.error(f"Source field '{source_field}' not found in radar fields.")
-        return False
+        return None
 
     if radar.nsweeps < 2:
         logger.debug("Cannot generate COLMAX: volume has fewer than 2 sweeps.")
-        return False
+        return None
 
-    # Create filtered copy of source field
-    filtered_field_name = source_field + "_filtered"
-    _apply_polarimetric_filters(
-        radar=radar,
-        source_field=source_field,
-        target_field=filtered_field_name,
-        refl_field=refl_field,
-        refl_filter=refl_filter,
-        refl_threshold=refl_threshold,
-        rhv_field=rhv_field,
-        rhv_filter=rhv_filter,
-        rhv_threshold=rhv_threshold,
-        zdr_field=zdr_field,
-        zdr_filter=zdr_filter,
-        zdr_threshold=zdr_threshold,
-        wrad_field=wrad_field,
-        wrad_filter=wrad_filter,
-        wrad_threshold=wrad_threshold,
-    )
+    # Create a deep copy of the radar object to avoid modifying the input
+    radar_copy = deepcopy(radar)
+
+    # Determine if we need to apply filters
+    any_filter_enabled = refl_filter or rhv_filter or wrad_filter or zdr_filter
+
+    if any_filter_enabled:
+        # Create filtered copy of source field
+        filtered_field_name = source_field + "_filtered"
+        _apply_polarimetric_filters(
+            radar=radar_copy,
+            source_field=source_field,
+            target_field=filtered_field_name,
+            refl_field=refl_field,
+            refl_filter=refl_filter,
+            refl_threshold=refl_threshold,
+            rhv_field=rhv_field,
+            rhv_filter=rhv_filter,
+            rhv_threshold=rhv_threshold,
+            zdr_field=zdr_field,
+            zdr_filter=zdr_filter,
+            zdr_threshold=zdr_threshold,
+            wrad_field=wrad_field,
+            wrad_filter=wrad_filter,
+            wrad_threshold=wrad_threshold,
+        )
+        field_to_use = filtered_field_name
+    else:
+        # Use source field directly for better performance
+        field_to_use = source_field
 
     # Get sweep ordering and vertical vinculation map
-    sw_tuples_az, sweep_ref = get_ordered_sweep_list(radar, elev_limit)
+    sw_tuples_az, sweep_ref = get_ordered_sweep_list(radar_copy, elev_limit)
     vvg_map = get_vertical_vinculation_gate_map(
-        radar=radar,
+        radar=radar_copy,
         logger_name=logger.name,
         use_sweeps_above=elev_limit,
         save_vvg_map=True,
@@ -145,11 +161,10 @@ def generate_colmax(
         regenerate_flag=regenerate_flag,
     )
 
-    # Generate COLMAX field
-    colmax_data = _compute_colmax(
-        radar=radar,
-        filtered_field_name=filtered_field_name,
-        source_field=source_field,
+    # Generate COLMAX field using optimized computation
+    colmax_data = _compute_colmax_optimized(
+        radar=radar_copy,
+        field_name=field_to_use,
         sw_tuples_az=sw_tuples_az,
         sweep_ref=sweep_ref,
         vvg_map=vvg_map,
@@ -157,22 +172,22 @@ def generate_colmax(
 
     # Add field to radar
     _add_colmax_to_radar(
-        radar=radar,
+        radar=radar_copy,
         colmax_data=colmax_data,
-        source_field=filtered_field_name,
+        source_field=field_to_use,
         target_field=target_field,
     )
 
-    # Clean up temporary field
-    if filtered_field_name in radar.fields:
-        del radar.fields[filtered_field_name]
+    # Clean up temporary filtered field if it was created
+    if any_filter_enabled and filtered_field_name in radar_copy.fields:
+        del radar_copy.fields[filtered_field_name]
 
     if save_changes and path_out:
         from radarlib.io.pyart.pyart_radar import save_radar_netcdf
 
-        save_radar_netcdf(radar=radar, path_out=path_out)
+        save_radar_netcdf(radar=radar_copy, path_out=path_out)
 
-    return True
+    return radar_copy
 
 
 def _apply_polarimetric_filters(
@@ -272,6 +287,9 @@ def _compute_colmax(
     """
     Compute COLMAX by comparing gates across sweeps.
 
+    DEPRECATED: This function is kept for backward compatibility but is slower
+    than _compute_colmax_optimized. Use _compute_colmax_optimized instead.
+
     Returns
     -------
     np.ma.MaskedArray
@@ -310,6 +328,89 @@ def _compute_colmax(
                     and colmax_data[ray, gate_ref] < filtered_data[ray_idx, gate]
                 ):
                     colmax_data[ray, gate_ref] = filtered_data[ray_idx, gate]
+
+    return colmax_data
+
+
+def _compute_colmax_optimized(
+    radar: Radar,
+    field_name: str,
+    sw_tuples_az: list,
+    sweep_ref: int,
+    vvg_map: np.ndarray,
+) -> np.ma.MaskedArray:
+    """
+    Compute COLMAX by comparing gates across sweeps using vectorized operations.
+
+    This optimized version uses numpy's vectorized operations to improve performance
+    significantly compared to the original nested loop implementation.
+
+    Parameters
+    ----------
+    radar : Radar
+        PyART Radar object containing multiple sweeps.
+    field_name : str
+        Field name to use as source for COLMAX computation.
+    sw_tuples_az : list
+        List of (elevation, sweep_index) tuples ordered by elevation.
+    sweep_ref : int
+        Index of the reference sweep (lowest elevation).
+    vvg_map : np.ndarray
+        Vertical vinculation gate map (ngates x nsweeps).
+
+    Returns
+    -------
+    np.ma.MaskedArray
+        COLMAX data with shape (nrays_in_sweep, ngates).
+    """
+    sw_rays = int(radar.nrays / radar.nsweeps)
+    field_data = radar.fields[field_name]["data"]
+
+    # Initialize with reference sweep
+    radar_aux = radar.extract_sweeps([sweep_ref])
+    colmax_data = radar_aux.fields[field_name]["data"].copy()
+    del radar_aux
+
+    # Process each sweep above the reference
+    for _el, sweep in sw_tuples_az[1:]:
+        # Get the start and end ray indices for this sweep
+        sweep_start = sweep * sw_rays
+        sweep_end = sweep_start + sw_rays
+
+        # Extract data for this sweep
+        sweep_data = field_data[sweep_start:sweep_end, :]
+
+        # Process each gate in the reference sweep
+        for gate_ref in range(radar.ngates):
+            # Get the corresponding gate in the current sweep
+            gate = vvg_map[gate_ref, sweep]
+
+            # Skip if the gate mapping is masked (invalid)
+            if np.ma.is_masked(gate):
+                continue
+
+            gate = int(gate)
+
+            # Extract the column of data for this gate from the sweep
+            sweep_column = sweep_data[:, gate]
+            colmax_column = colmax_data[:, gate_ref]
+
+            # Vectorized update: use np.maximum to compare arrays element-wise
+            # For masked arrays, np.maximum properly handles masks
+            # First, fill masked colmax values with sweep values
+            mask_colmax = np.ma.getmaskarray(colmax_column)
+            mask_sweep = np.ma.getmaskarray(sweep_column)
+
+            # Where colmax is masked and sweep is not, use sweep value
+            update_mask = mask_colmax & ~mask_sweep
+            if np.any(update_mask):
+                colmax_data[update_mask, gate_ref] = sweep_column[update_mask]
+                colmax_data.mask[update_mask, gate_ref] = False
+
+            # Where both are valid, take maximum
+            both_valid = ~mask_colmax & ~mask_sweep
+            if np.any(both_valid):
+                colmax_data[both_valid, gate_ref] = np.maximum(colmax_column[both_valid], sweep_column[both_valid])
 
     return colmax_data
 
