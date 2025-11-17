@@ -9,6 +9,10 @@ My Python Library is a Python package designed to provide essential functionalit
 - Easy-to-use API for common tasks
 - Comprehensive unit tests to ensure reliability
 - Built-in support for debugging and development
+- **Async FTP Daemon Service**: Background service for continuous monitoring and downloading of BUFR files from FTP servers
+- BUFR file decoding and processing
+- PyART radar data integration
+- PNG and GeoTIFF export capabilities
 
 ## Installation
 
@@ -28,14 +32,48 @@ pip install -r requirements.txt
 
 ## Usage
 
-Here is a simple example of how to use My Python Library:
+### FTP Daemon Service
+
+The FTP daemon service allows you to continuously monitor an FTP server for new BUFR files:
 
 ```python
-from radarlib import core
+import asyncio
+from radarlib.io.ftp import FTPDaemon, FTPDaemonConfig
 
-# Example usage of a function from the library
-result = core.some_function()
-print(result)
+async def run_daemon():
+    config = FTPDaemonConfig(
+        host='ftp.example.com',
+        username='user',
+        password='pass',
+        remote_path='/radar/data',
+        local_dir='/data/radar/incoming',
+        poll_interval=60,  # Check every 60 seconds
+        max_concurrent_downloads=5
+    )
+    
+    daemon = FTPDaemon(config)
+    await daemon.run()  # Runs indefinitely
+
+asyncio.run(run_daemon())
+```
+
+For more examples, see:
+- `examples/ftp_client_example.py` - Basic FTP client usage
+- `examples/ftp_daemon_example.py` - Daemon service examples
+- `examples/ftp_integration_example.py` - Complete integration with BUFR processing
+
+### BUFR File Processing
+
+Here is an example of how to process BUFR radar files:
+
+```python
+from radarlib.io.bufr import bufr_to_dict, bufr_to_pyart
+
+# Decode BUFR file
+bufr_dict = bufr_to_dict('radar_file.BUFR')
+
+# Convert to PyART radar object
+radar = bufr_to_pyart([bufr_dict])
 ```
 
 ## Development
