@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 from typing import Any, Dict, Optional
 
 root_proyect = os.path.dirname(os.path.abspath(__file__))
@@ -28,9 +27,9 @@ DEFAULTS: Dict[str, Any] = {
     "COLMAX_WRAD_UMBRAL": 4.6,
     "COLMAX_TDR_FILTER": True,
     "COLMAX_TDR_UMBRAL": 8.5,
-    "FTP_HOST": os.environ.get("FTP_HOST", "200.16.116.24"),
-    "FTP_USER": os.environ.get("FTP_USER", "IMontamat"),
-    "FTP_PASS": os.environ.get("FTP_PASS", "1m0nt"),
+    "FTP_HOST": "www.example.com",
+    "FTP_USER": "example_user",
+    "FTP_PASS": "secret",
 }
 
 _config: Dict[str, Any] = DEFAULTS.copy()
@@ -57,14 +56,30 @@ def _auto_load() -> None:
     if env_path and _try_load_file(env_path):
         return
 
-    # 2) package-local radarlib.json (src/radarlib/radarlib.json)
-    pkg_local = Path(__file__).resolve().parent / "radarlib.json"
-    if _try_load_file(str(pkg_local)):
-        return
+    # Override with environment variables if they exist
+    for key in _config.keys():
+        env_val = os.environ.get(key)
+        if env_val is not None:
+            # Try to preserve type from defaults
+            default_val = DEFAULTS.get(key)
+            if isinstance(default_val, bool):
+                _config[key] = env_val.lower() in ("true", "1", "yes")
+            elif isinstance(default_val, (int, float)):
+                try:
+                    _config[key] = type(default_val)(env_val)
+                except ValueError:
+                    pass
+            else:
+                _config[key] = env_val
 
-    # 3) project root candidate (one level up)
-    project_local = Path(__file__).resolve().parent.parent / "radarlib.json"
-    _try_load_file(str(project_local))
+    # # 2) package-local radarlib.json (src/radarlib/radarlib.json)
+    # pkg_local = Path(__file__).resolve().parent / "radarlib.json"
+    # if _try_load_file(str(pkg_local)):
+    #     return
+
+    # # 3) project root candidate (one level up)
+    # project_local = Path(__file__).resolve().parent.parent / "radarlib.json"
+    # _try_load_file(str(project_local))
 
 
 _auto_load()

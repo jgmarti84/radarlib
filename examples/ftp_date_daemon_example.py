@@ -8,11 +8,61 @@ and downloading BUFR files based on date ranges with SQLite state tracking.
 """
 
 import asyncio
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
 from radarlib import config
 from radarlib.io.ftp import DateBasedDaemonConfig, DateBasedFTPDaemon
+
+
+def example_ongoing_daemon_with_voltypes_filering():
+    """
+    Example: Ongoing daemon with volume types filtering.
+
+    This will keep running and downloading new files as they appear,
+    but only for specified volume types and field types.
+    """
+    print("=" * 60)
+    print("Ongoing Daemon with Volume Types Filtering Example")
+    print("=" * 60)
+
+    # Define valid volume types for radar
+    # Format: {vol_code: {vol_number: [field_types]}}
+    volume_types = {
+        "0315": {
+            "01": ["DBZH", "DBZV", "ZDR", "RHOHV", "PHIDP", "KDP"],
+            "02": ["VRAD", "WRAD"],
+        },
+    }
+    radar_name = "RMA1"
+    daemon_config = DateBasedDaemonConfig(
+        host=config.FTP_HOST,
+        username=config.FTP_USER,
+        password=config.FTP_PASS,
+        remote_base_path="/L2",
+        radar_code=radar_name,
+        local_download_dir=Path(os.path.join(config.ROOT_RADAR_FILES_PATH, radar_name, "bufr")),
+        state_db=Path(os.path.join(config.ROOT_RADAR_FILES_PATH, radar_name, "state.db")),
+        start_date=datetime(2025, 11, 17, tzinfo=timezone.utc),
+        end_date=None,  # No end date - runs indefinitely
+        poll_interval=60,
+        volume_types=volume_types,  # Apply filtering
+    )
+    daemon = DateBasedFTPDaemon(daemon_config)
+    print("\nStarting ongoing daemon with volume types filtering...")
+    print("-" * 60)
+    try:
+        asyncio.run(daemon.run())
+    except KeyboardInterrupt:
+        print("\nDaemon stopped by user")
+
+    stats = daemon.get_stats()
+    print("\n" + "=" * 60)
+    print("Daemon Statistics:")
+    print(f"  Total files downloaded: {stats['total_downloaded']}")
+    print(f"  Current scan date: {stats['current_scan_date']}")
+    print("=" * 60)
 
 
 def example_date_range_daemon():
@@ -310,8 +360,11 @@ def example_volume_filtering():
 if __name__ == "__main__":
     # Uncomment the example you want to run:
 
+    # example_ongoing_daemon_with_voltypes_filering()
+    example_ongoing_daemon_with_voltypes_filering()
+
     # Download files for a specific date range (auto-stops when complete)
-    example_date_range_daemon()
+    # example_date_range_daemon()
 
     # Continuous monitoring without end date
     # example_ongoing_monitoring()

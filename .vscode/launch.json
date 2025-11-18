@@ -10,7 +10,31 @@
             "justMyCode": true
         },
         {
+            "name": "Python: Tests",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Python: Integration Tests",
+            "args": [
+                "-m",
+                "integration"
+            ],
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
             "name": "Python: Unit Tests",
+            "args": [
+                "-m",
+                "not integration"
+            ],
             "type": "debugpy",
             "request": "launch",
             "module": "pytest",

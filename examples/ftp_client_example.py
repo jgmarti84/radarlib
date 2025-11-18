@@ -6,18 +6,19 @@ Example: Basic FTP Client Usage
 This example demonstrates how to use the FTPClient class to interact with
 an FTP server and download BUFR files.
 """
-
+import os
 from pathlib import Path
 
 from radarlib import config
 from radarlib.io.ftp import FTPClient
 
 # Configuration
+radar_name = "RMA1"
 FTP_HOST = config.FTP_HOST
 FTP_USER = config.FTP_USER
 FTP_PASSWORD = config.FTP_PASS
-REMOTE_DIR = "/L2/RMA1/2024/01/01/00/0019"
-LOCAL_DIR = Path("./downloads")
+REMOTE_DIR = f"/L2/{radar_name}/2025/11/18/12/0239"
+LOCAL_DIR = Path(os.path.join(config.ROOT_RADAR_FILES_PATH, radar_name, "bufr"))
 
 
 def main():
