@@ -32,9 +32,49 @@ pip install -r requirements.txt
 
 ## Usage
 
+### Date-Based FTP Daemon (NEW)
+
+**For date-range based monitoring with SQLite state tracking and auto-resume:**
+
+```python
+import asyncio
+from datetime import datetime, timezone
+from pathlib import Path
+from radarlib.io.ftp import DateBasedFTPDaemon, DateBasedDaemonConfig
+
+async def run_daemon():
+    config = DateBasedDaemonConfig(
+        host='ftp.example.com',
+        username='user',
+        password='pass',
+        remote_base_path='/L2',
+        radar_code='RMA1',  # Specific radar
+        local_download_dir=Path('./downloads'),
+        state_db=Path('./state.db'),  # SQLite database
+        start_date=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        end_date=datetime(2025, 1, 2, tzinfo=timezone.utc),  # Auto-stops when complete
+        verify_checksums=True,  # SHA256 verification
+        resume_partial=True,  # Resume interrupted downloads
+    )
+
+    daemon = DateBasedFTPDaemon(config)
+    await daemon.run()  # Auto-resumes from last download
+
+asyncio.run(run_daemon())
+```
+
+**Features:**
+- Scans date hierarchy: `/L2/RADAR/YYYY/MM/DD/HH/MMSS/`
+- SQLite database for high-performance state tracking
+- Auto-resumes from last downloaded file
+- Auto-stops when end date reached
+- Checksum verification and partial download handling
+
+See [`DATE_BASED_DAEMON.md`](DATE_BASED_DAEMON.md) for detailed documentation.
+
 ### FTP Daemon Service
 
-The FTP daemon service allows you to continuously monitor an FTP server for new BUFR files:
+The basic FTP daemon service for simple directory monitoring:
 
 ```python
 import asyncio
@@ -82,6 +122,7 @@ client.download_files('/L2/RMA1', ['file1.BUFR', 'file2.BUFR'], Path('./download
 For more examples, see:
 - `examples/ftp_client_example.py` - Basic FTP client usage
 - `examples/ftp_daemon_example.py` - Daemon service examples
+- `examples/ftp_date_daemon_example.py` - Date-based daemon examples (NEW)
 - `examples/ftp_integration_example.py` - Complete integration with BUFR processing
 
 ### BUFR File Processing
