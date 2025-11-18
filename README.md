@@ -32,12 +32,53 @@ pip install -r requirements.txt
 
 ## Usage
 
-### FTP Daemon Service
+### Date-Based FTP Daemon (NEW)
 
-The FTP daemon service allows you to continuously monitor an FTP server for new BUFR files:
+**For date-range based monitoring with SQLite state tracking and auto-resume:**
 
 ```python
 import asyncio
+from datetime import datetime, timezone
+from pathlib import Path
+from radarlib.io.ftp import DateBasedFTPDaemon, DateBasedDaemonConfig
+
+async def run_daemon():
+    config = DateBasedDaemonConfig(
+        host='ftp.example.com',
+        username='user',
+        password='pass',
+        remote_base_path='/L2',
+        radar_code='RMA1',  # Specific radar
+        local_download_dir=Path('./downloads'),
+        state_db=Path('./state.db'),  # SQLite database
+        start_date=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        end_date=datetime(2025, 1, 2, tzinfo=timezone.utc),  # Auto-stops when complete
+        verify_checksums=True,  # SHA256 verification
+        resume_partial=True,  # Resume interrupted downloads
+    )
+
+    daemon = DateBasedFTPDaemon(config)
+    await daemon.run()  # Auto-resumes from last download
+
+asyncio.run(run_daemon())
+```
+
+**Features:**
+- Scans date hierarchy: `/L2/RADAR/YYYY/MM/DD/HH/MMSS/`
+- SQLite database for high-performance state tracking
+- Auto-resumes from last downloaded file
+- Auto-stops when end date reached
+- Checksum verification and partial download handling
+
+See [`DATE_BASED_DAEMON.md`](DATE_BASED_DAEMON.md) for detailed documentation.
+
+### FTP Daemon Service
+
+The basic FTP daemon service for simple directory monitoring:
+
+```python
+import asyncio
+from pathlib import Path
 from radarlib.io.ftp import FTPDaemon, FTPDaemonConfig
 
 async def run_daemon():
@@ -45,8 +86,9 @@ async def run_daemon():
         host='ftp.example.com',
         username='user',
         password='pass',
-        remote_path='/radar/data',
-        local_dir='/data/radar/incoming',
+        remote_base_path='/L2/radar',
+        local_download_dir=Path('./downloads'),
+        state_file=Path('./download_state.json'),
         poll_interval=60,  # Check every 60 seconds
         max_concurrent_downloads=5
     )
@@ -57,9 +99,30 @@ async def run_daemon():
 asyncio.run(run_daemon())
 ```
 
+### Basic FTP Client
+
+For simple one-time downloads or custom workflows:
+
+```python
+from pathlib import Path
+from radarlib.io.ftp import FTPClient
+
+client = FTPClient(host='ftp.example.com', user='user', password='pass')
+
+# List files
+files = client.list_files('/L2/RMA1/2024/01/01')
+
+# Download a file
+client.download_file('/L2/RMA1/file.BUFR', Path('./local.BUFR'))
+
+# Download multiple files
+client.download_files('/L2/RMA1', ['file1.BUFR', 'file2.BUFR'], Path('./downloads'))
+```
+
 For more examples, see:
 - `examples/ftp_client_example.py` - Basic FTP client usage
 - `examples/ftp_daemon_example.py` - Daemon service examples
+- `examples/ftp_date_daemon_example.py` - Date-based daemon examples (NEW)
 - `examples/ftp_integration_example.py` - Complete integration with BUFR processing
 
 ### BUFR File Processing

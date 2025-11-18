@@ -488,59 +488,9 @@ async def exponential_backoff_retry(coro, max_retries=5, base_delay=1, max_delay
 
 
 if __name__ == "__main__":
-    from radarlib import config
-
-    # Example usage
-    ip = config.FTP_HOST
-    user = config.FTP_USER
-    password = config.FTP_PASS
-    # remote_path = "/path/on/ftp/"
-    # local_path = "./local_download/"
-
-    ftp_manager = ftp_connection_manager(ip, user, password)
-    with ftp_manager as ftp:
-        print("Conexión exitosa. Bienvenido:", ftp.getwelcome())
-        print("Listando archivos:", ftp.nlst())
-    print(ftp_manager)
-
-    files_list = list_files_in_remote_dir(ip, user, password, "/L2/")
-    print("Archivos en /L2/:", files_list)
-
-    # DIRECTORIO_REMOTO = "/L2/AR5/2024/01/01"
-    # NOMBRE_ARCHIVO_REMOTO = "/00/0019" # Un ejemplo de carpeta que deberia fallar
-    DIRECTORIO_REMOTO = "/L2/AR5/2024/01/01/00/0019"
-    NOMBRE_ARCHIVO_REMOTO = "AR5_1000_3_VRAD_20240101T000019Z.BUFR"  # Un archivo de ejemplo para descargar
-
-    directorio_descargas = Path("../ftp_downloads")
-    print(f"Asegurando que el directorio '{directorio_descargas}' exista...")
-
-    directorio_descargas.mkdir(parents=True, exist_ok=True)
-    ruta_completa_local = directorio_descargas / NOMBRE_ARCHIVO_REMOTO
-
-    try:
-        download_file_from_ftp(
-            host=ip,
-            user=user,
-            password=password,
-            remote_dir=DIRECTORIO_REMOTO,
-            remote_filename=NOMBRE_ARCHIVO_REMOTO,
-            local_filepath=ruta_completa_local,
-        )
-
-    except FTP_IsADirectoryError as e:
-        # ¡Éxito! Capturamos nuestro error específico y personalizado.
-        logger.error(f"ERROR CONTROLADO: {e}")
-    except ConnectionError as e:
-        logger.error(f"ERROR DE CONEXIÓN: {e}")
-    except FTPActionError as e:
-        logger.error(f"ERROR DE OPERACIÓN FTP: {e}")
-    except Exception as e:
-        logger.error(f"UN ERROR INESPERADO OCURRIÓ: {e}")
-
-    download_ftp_folder(
-        host=ip,
-        user=user,
-        password=password,
-        remote_path=Path("/L2/AR5/2024/01/01/00"),
-        local_path=directorio_descargas / "AR5_2024_01_01_00",
-    )
+    # For usage examples, see:
+    # - examples/ftp_client_example.py
+    # - examples/ftp_daemon_example.py
+    # - examples/ftp_integration_example.py
+    print("This module provides low-level FTP functions.")
+    print("For usage examples, see the examples/ directory.")
