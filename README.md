@@ -10,6 +10,7 @@ My Python Library is a Python package designed to provide essential functionalit
 - Comprehensive unit tests to ensure reliability
 - Built-in support for debugging and development
 - **Async FTP Daemon Service**: Background service for continuous monitoring and downloading of BUFR files from FTP servers
+- **BUFR Processing Daemon**: Automatic processing of downloaded BUFR files into NetCDF format
 - BUFR file decoding and processing
 - PyART radar data integration
 - PNG and GeoTIFF export capabilities
@@ -72,6 +73,63 @@ asyncio.run(run_daemon())
 
 See [`DATE_BASED_DAEMON.md`](DATE_BASED_DAEMON.md) for detailed documentation.
 
+### BUFR Processing Daemon (NEW)
+
+**Automatic processing of downloaded BUFR volumes into NetCDF files:**
+
+```python
+import asyncio
+from pathlib import Path
+from radarlib.io.ftp import ProcessingDaemon, ProcessingDaemonConfig
+
+# Define volume types - must match download daemon config
+volume_types = {
+    "0315": {
+        "01": ["DBZH", "DBZV", "ZDR", "RHOHV", "PHIDP", "KDP"],
+        "02": ["VRAD", "WRAD"],
+    },
+}
+
+async def run_processing():
+    config = ProcessingDaemonConfig(
+        local_bufr_dir=Path('./downloads/bufr'),
+        local_netcdf_dir=Path('./downloads/netcdf'),
+        state_db=Path('./state.db'),  # Same database as download daemon
+        volume_types=volume_types,
+        radar_code='RMA1',
+        poll_interval=30,  # Check every 30 seconds
+    )
+    
+    daemon = ProcessingDaemon(config)
+    await daemon.run()
+
+asyncio.run(run_processing())
+```
+
+**Features:**
+- Automatic detection of complete volumes (all required field types downloaded)
+- BUFR decoding and PyART Radar object creation
+- NetCDF file generation with CF/Radial convention
+- Processing state tracking in SQLite database
+- Error handling and recovery
+- Concurrent volume processing
+
+**Combined Pipeline** - Run download and processing together:
+
+```python
+async def run_complete_pipeline():
+    """Complete pipeline from FTP to NetCDF."""
+    download_daemon = DateBasedFTPDaemon(download_config)
+    processing_daemon = ProcessingDaemon(processing_config)
+    
+    await asyncio.gather(
+        download_daemon.run(),
+        processing_daemon.run(),
+    )
+```
+
+See [`PROCESSING_DAEMON.md`](PROCESSING_DAEMON.md) for detailed documentation.
+
 ### FTP Daemon Service
 
 The basic FTP daemon service for simple directory monitoring:
@@ -122,7 +180,8 @@ client.download_files('/L2/RMA1', ['file1.BUFR', 'file2.BUFR'], Path('./download
 For more examples, see:
 - `examples/ftp_client_example.py` - Basic FTP client usage
 - `examples/ftp_daemon_example.py` - Daemon service examples
-- `examples/ftp_date_daemon_example.py` - Date-based daemon examples (NEW)
+- `examples/ftp_date_daemon_example.py` - Date-based daemon examples
+- `examples/processing_daemon_example.py` - BUFR processing daemon examples (NEW)
 - `examples/ftp_integration_example.py` - Complete integration with BUFR processing
 
 ### BUFR File Processing
