@@ -2,7 +2,6 @@
 """Unit tests for volume processing functionality in SQLiteStateTracker."""
 
 import tempfile
-from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest

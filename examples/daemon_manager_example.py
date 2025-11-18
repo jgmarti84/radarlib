@@ -81,12 +81,12 @@ def example_basic_daemon_manager():
     print("Final Status:")
     print(f"  Radar: {status['radar_code']}")
     print(f"  Base path: {status['base_path']}")
-    print(f"\n  Download daemon:")
+    print("\n  Download daemon:")
     print(f"    Enabled: {status['download_daemon']['enabled']}")
     print(f"    Running: {status['download_daemon']['running']}")
     if status['download_daemon']['stats']:
         print(f"    Files downloaded: {status['download_daemon']['stats']['total_downloaded']}")
-    print(f"\n  Processing daemon:")
+    print("\n  Processing daemon:")
     print(f"    Enabled: {status['processing_daemon']['enabled']}")
     print(f"    Running: {status['processing_daemon']['running']}")
     if status['processing_daemon']['stats']:

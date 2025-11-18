@@ -198,7 +198,7 @@ def example_check_processing_status():
     completed = tracker.get_volumes_by_status("completed")
     failed = tracker.get_volumes_by_status("failed")
 
-    print(f"\nVolume Status Summary:")
+    print("\nVolume Status Summary:")
     print(f"  Pending: {len(pending)}")
     print(f"  Processing: {len(processing)}")
     print(f"  Completed: {len(completed)}")
@@ -219,7 +219,7 @@ def example_check_processing_status():
 
     # Show completed volumes
     if completed:
-        print(f"\nRecently completed volumes (last 5):")
+        print("\nRecently completed volumes (last 5):")
         for i, vol in enumerate(completed[-5:], 1):
             print(f"\n  {i}. {vol['volume_id']}")
             print(f"     NetCDF: {vol['netcdf_path']}")
@@ -227,7 +227,7 @@ def example_check_processing_status():
 
     # Show failed volumes
     if failed:
-        print(f"\nFailed volumes:")
+        print("\nFailed volumes:")
         for i, vol in enumerate(failed, 1):
             print(f"\n  {i}. {vol['volume_id']}")
             print(f"     Error: {vol['error_message']}")

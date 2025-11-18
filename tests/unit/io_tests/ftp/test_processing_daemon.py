@@ -3,12 +3,10 @@
 
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch
 
 import pytest
 
 from radarlib.io.ftp.processing_daemon import ProcessingDaemon, ProcessingDaemonConfig
-from radarlib.io.ftp.sqlite_state_tracker import SQLiteStateTracker
 
 
 class TestProcessingDaemonConfig:

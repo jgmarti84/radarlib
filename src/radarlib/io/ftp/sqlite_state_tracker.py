@@ -115,7 +115,8 @@ class SQLiteStateTracker:
         # Index for faster queries on volume processing
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_volume_id ON volume_processing(volume_id)")
         cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_volume_radar_datetime ON volume_processing(radar_code, observation_datetime)"
+            "CREATE INDEX IF NOT EXISTS idx_volume_radar_datetime ON "
+            "volume_processing(radar_code, observation_datetime)"
         )
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_volume_status ON volume_processing(status)")
 
