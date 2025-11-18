@@ -7,11 +7,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Generator, List
 
-from .ftp import (
-    FTP_IsADirectoryError,
-    FTPActionError,
-    ftp_connection_manager,
-)
+from .ftp import FTP_IsADirectoryError, FTPActionError, ftp_connection_manager
 
 logger = logging.getLogger(__name__)
 
