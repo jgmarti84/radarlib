@@ -130,6 +130,51 @@ async def run_complete_pipeline():
 
 See [`PROCESSING_DAEMON.md`](PROCESSING_DAEMON.md) for detailed documentation.
 
+### Simple Daemon Manager (NEW)
+
+**Easy management of both daemons with a single interface:**
+
+```python
+import asyncio
+from datetime import datetime, timezone
+from pathlib import Path
+from radarlib.io.ftp import DaemonManager, DaemonManagerConfig
+
+volume_types = {
+    "0315": {
+        "01": ["DBZH", "DBZV", "ZDR", "RHOHV", "PHIDP", "KDP"],
+        "02": ["VRAD", "WRAD"],
+    },
+}
+
+config = DaemonManagerConfig(
+    radar_code="RMA1",
+    base_path=Path("./radar_data/RMA1"),
+    ftp_host="ftp.example.com",
+    ftp_user="user",
+    ftp_password="pass",
+    ftp_base_path="/L2",
+    volume_types=volume_types,
+    start_date=datetime(2025, 11, 17, tzinfo=timezone.utc),
+)
+
+# Start both daemons with one command
+manager = DaemonManager(config)
+await manager.start()
+
+# Or control them individually:
+# manager.stop()  # Stop all
+# await manager.restart_processing_daemon()  # Restart just processing
+# status = manager.get_status()  # Check status
+```
+
+**Features:**
+- Single interface for both daemons
+- Start/stop control for each daemon independently
+- Update configuration on-the-fly
+- Status monitoring
+- Automatic directory setup
+
 ### FTP Daemon Service
 
 The basic FTP daemon service for simple directory monitoring:
@@ -181,7 +226,8 @@ For more examples, see:
 - `examples/ftp_client_example.py` - Basic FTP client usage
 - `examples/ftp_daemon_example.py` - Daemon service examples
 - `examples/ftp_date_daemon_example.py` - Date-based daemon examples
-- `examples/processing_daemon_example.py` - BUFR processing daemon examples (NEW)
+- `examples/processing_daemon_example.py` - BUFR processing daemon examples
+- `examples/daemon_manager_example.py` - Simple daemon manager (NEW)
 - `examples/ftp_integration_example.py` - Complete integration with BUFR processing
 
 ### BUFR File Processing
