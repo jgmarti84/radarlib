@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+
 import logging
 from math import asin, cos, radians, sin, sqrt
 from typing import List, Optional
@@ -6,6 +7,8 @@ from typing import List, Optional
 import numpy as np
 from pyart.config import get_field_name, get_metadata
 from pyart.core import Radar
+
+from radarlib import config
 
 LINE_LARGE = 90
 LINE_FORMAT = "90.90"
@@ -272,6 +275,152 @@ def get_lowest_nsweep(radar: Radar) -> int:
         sweeps_list.append(radar.get_elevation(sweep=nsweep)[0])
 
     return sweeps_list.index(min(sweeps_list))
+
+
+def get_field_config_(field, filter: bool = True, logger_name: str = __name__):
+
+    d = {
+        "DBZH": {
+            "nofilter": {
+                "vmin": config.VMIN_REFL_NOFILTERS,
+                "vmax": config.VMAX_REFL_NOFILTERS,
+                "cmap": config.CMAP_REFL_NOFILTERS,
+            },
+            "filter": {"vmin": config.VMIN_REFL, "vmax": config.VMAX_REFL, "cmap": config.CMAP_REFL},
+        },
+        "TH": {
+            "nofilter": {
+                "vmin": config.VMIN_REFL_NOFILTERS,
+                "vmax": config.VMAX_REFL_NOFILTERS,
+                "cmap": config.CMAP_REFL_NOFILTERS,
+            },
+            "filter": {"vmin": config.VMIN_REFL, "vmax": config.VMAX_REFL, "cmap": config.CMAP_REFL},
+        },
+        "DBZV": {
+            "nofilter": {
+                "vmin": config.VMIN_REFL_NOFILTERS,
+                "vmax": config.VMAX_REFL_NOFILTERS,
+                "cmap": config.CMAP_REFL_NOFILTERS,
+            },
+            "filter": {"vmin": config.VMIN_REFL, "vmax": config.VMAX_REFL, "cmap": config.CMAP_REFL},
+        },
+        "TV": {
+            "nofilter": {
+                "vmin": config.VMIN_REFL_NOFILTERS,
+                "vmax": config.VMAX_REFL_NOFILTERS,
+                "cmap": config.CMAP_REFL_NOFILTERS,
+            },
+            "filter": {"vmin": config.VMIN_REFL, "vmax": config.VMAX_REFL, "cmap": config.CMAP_REFL},
+        },
+        "COLMAX": {
+            "nofilter": {
+                "vmin": config.VMIN_REFL_NOFILTERS,
+                "vmax": config.VMAX_REFL_NOFILTERS,
+                "cmap": config.CMAP_REFL_NOFILTERS,
+            },
+            "filter": {"vmin": config.VMIN_REFL, "vmax": config.VMAX_REFL, "cmap": config.CMAP_REFL},
+        },
+    }
+    if field not in d.keys():
+        return {"vmin": None, "vmax": None, "cmap": None}
+
+    filter_key = "filter" if filter else "nofilter"
+    return d[field][filter_key]
+
+
+# def get_field_config(field_name: str, radar: Radar, filter: bool = True, logger_name: str = __name__):
+#     """
+#     Devuelve la configuración de plot para un campo específico.
+#     Si no existe configuración definida, devuelve None.
+#     """
+#     logger = logging.getLogger(logger_name)
+
+#     # Definimos campos a utilizar ----------------------------------------------------------------------
+#     if "DBZH" in radar.fields.keys() and "TH" in radar.fields.keys():
+#         hrefl_field = "DBZH"
+#         hrefl_field_raw = "TH"
+#     elif "DBZH" in radar.fields.keys() and "TH" not in radar.fields.keys():
+#         hrefl_field = hrefl_field_raw = "DBZH"
+#     elif "DBZH" not in radar.fields.keys() and "TH" in radar.fields.keys():
+#         hrefl_field = hrefl_field_raw = "TH"
+#     else:
+#         hrefl_field = hrefl_field_raw = "DBZH"
+#         logger.error("Campo de reflectividad horizontal inexistente.")
+
+#     if "DBZV" in radar.fields.keys() and "TV" in radar.fields.keys():
+#         vrefl_field = "DBZV"
+#         vrefl_field_raw = "TV"
+#     elif "DBZV" in radar.fields.keys() and "TV" not in radar.fields.keys():
+#         vrefl_field = vrefl_field_raw = "DBZV"
+#     elif "DBZV" not in radar.fields.keys() and "TV" in radar.fields.keys():
+#         vrefl_field = vrefl_field_raw = "TV"
+#     else:
+#         vrefl_field = vrefl_field_raw = "DBZV"
+#         logger.error("Campo de reflectividad vertical inexistente.")
+
+#     rhv_field = get_field_name("cross_correlation_ratio")
+#     zdr_field = get_field_name("differential_reflectivity")
+#     # cm_field = get_field_name("clutter_map")
+#     phidp_field = get_field_name("differential_phase")
+#     kdp_field = get_field_name("specific_differential_phase")
+#     vrad_field = get_field_name("velocity")
+#     wrad_field = get_field_name("spectrum_width")
+#     colmax_field = get_field_name("colmax")
+
+#     if field_name in [hrefl_field, hrefl_field_raw]:
+#         field = hrefl_field_raw
+#     if field_name in [vrefl_field, vrefl_field_raw]:
+#         field = vrefl_field_raw
+#     if field_name not in radar.fields.keys():
+#         return None
+
+#     if filter:
+#         if field in [hrefl_field, hrefl_field_raw, vrefl_field, vrefl_field_raw, colmax_field]:
+#             vmin = config.VMIN_REFL
+#             vmax = config.VMAX_REFL
+#             cmap = config.CMAP_REFL
+#         elif field in [rhv_field]:
+#             vmin = config.VMIN_RHOHV
+#             vmax = config.VMAX_RHOHV
+#             cmap = config.CMAP_RHOHV
+#         elif field in [phidp_field]:
+#             vmin = config.VMIN_PHIDP
+#             vmax = config.VMAX_PHIDP
+#             cmap = config.CMAP_PHIDP
+#         elif field in [kdp_field]:
+#             vmin = config.VMIN_KDP
+#             vmax = config.VMAX_KDP
+#             cmap = config.CMAP_KDP
+#         elif field in [zdr_field]:
+#             vmin = config.VMIN_ZDR
+#             vmax = config.VMAX_ZDR
+#             cmap = config.CMAP_ZDR
+#         elif field in [vrad_field]:
+#             vmin = config.VMIN_VRAD
+#             vmax = config.VMAX_VRAD
+#             cmap = config.CMAP_VRAD
+#         elif field in [wrad_field]:
+#             vmin = config.VMIN_WRAD
+#             vmax = config.VMAX_WRAD
+#             cmap = config.CMAP_WRAD
+#         else:
+#             vmin = None
+#             vmax = None
+#             cmap = None
+#     if field_name == "VRAD":
+#         vmin = config.VMIN_VRAD
+#         vmax = config.VMAX_VRAD
+#         cmap = config.CMAP_VRAD
+#     elif field_name == "WRAD":
+#         vmin = config.VMIN_WRAD
+#         vmax = config.VMAX_WRAD
+#         cmap = config.CMAP_WRAD
+
+#     else:
+#         vmin = None
+#         vmax = None
+#         cmap = None
+#     field_config = FieldPlotConfig(field_name=field, vmin=vmin, vmax=vmax, cmap=cmap, sweep=sweep)
 
 
 # def add_times_to_next_vols(files = None, radars=None,
