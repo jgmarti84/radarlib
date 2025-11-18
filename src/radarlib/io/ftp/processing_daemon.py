@@ -181,9 +181,7 @@ class ProcessingDaemon:
                     continue
 
                 # Create volume key
-                volume_id = self.state_tracker.get_volume_id(
-                    radar_code, vol_code, vol_number, observation_datetime
-                )
+                volume_id = self.state_tracker.get_volume_id(radar_code, vol_code, vol_number, observation_datetime)
 
                 if volume_id not in volumes:
                     volumes[volume_id] = {

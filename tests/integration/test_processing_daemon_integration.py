@@ -251,9 +251,7 @@ def test_processing_daemon_error_handling():
 
         # Create a fake volume with non-existent files
         volume_id = "RMA1_0315_01_2025-11-18T12:00:00Z"
-        tracker.register_volume(
-            volume_id, "RMA1", "0315", "01", "2025-11-18T12:00:00Z", ["DBZH"], is_complete=True
-        )
+        tracker.register_volume(volume_id, "RMA1", "0315", "01", "2025-11-18T12:00:00Z", ["DBZH"], is_complete=True)
 
         # Register a file that doesn't exist
         fake_file = "RMA1_0315_01_DBZH_20251118T120000Z.BUFR"

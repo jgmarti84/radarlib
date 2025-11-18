@@ -144,7 +144,7 @@ async def run_pipeline():
     """Run both daemons concurrently."""
     download_daemon = DateBasedFTPDaemon(download_config)
     processing_daemon = ProcessingDaemon(processing_config)
-    
+
     await asyncio.gather(
         download_daemon.run(),
         processing_daemon.run(),
@@ -210,7 +210,7 @@ For radar RMA1 at timestamp 2025-11-18T12:30:00Z:
 - Volume `RMA1_0315_01_2025-11-18T12:30:00Z` is complete when both:
   - `RMA1_0315_01_DBZH_20251118T123000Z.BUFR`
   - `RMA1_0315_01_DBZV_20251118T123000Z.BUFR`
-  
+
   are downloaded.
 
 ## Incomplete Volumes

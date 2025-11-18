@@ -99,7 +99,7 @@ async def run_processing():
         radar_code='RMA1',
         poll_interval=30,  # Check every 30 seconds
     )
-    
+
     daemon = ProcessingDaemon(config)
     await daemon.run()
 
@@ -121,7 +121,7 @@ async def run_complete_pipeline():
     """Complete pipeline from FTP to NetCDF."""
     download_daemon = DateBasedFTPDaemon(download_config)
     processing_daemon = ProcessingDaemon(processing_config)
-    
+
     await asyncio.gather(
         download_daemon.run(),
         processing_daemon.run(),

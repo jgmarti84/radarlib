@@ -155,9 +155,7 @@ class TestVolumeProcessing:
 
         for vol_id, status in volumes:
             parts = vol_id.split("_")
-            tracker.register_volume(
-                vol_id, parts[0], parts[1], parts[2], parts[3], ["DBZH"], is_complete=True
-            )
+            tracker.register_volume(vol_id, parts[0], parts[1], parts[2], parts[3], ["DBZH"], is_complete=True)
             if status != "pending":
                 tracker.mark_volume_processing(vol_id, status)
 
@@ -175,9 +173,7 @@ class TestVolumeProcessing:
         complete_vol = "RMA1_0315_01_2025-11-18T12:00:00Z"
         incomplete_vol = "RMA1_0315_01_2025-11-18T12:30:00Z"
 
-        tracker.register_volume(
-            complete_vol, "RMA1", "0315", "01", "2025-11-18T12:00:00Z", ["DBZH"], is_complete=True
-        )
+        tracker.register_volume(complete_vol, "RMA1", "0315", "01", "2025-11-18T12:00:00Z", ["DBZH"], is_complete=True)
 
         tracker.register_volume(
             incomplete_vol, "RMA1", "0315", "01", "2025-11-18T12:30:00Z", ["DBZH"], is_complete=False
