@@ -31,7 +31,7 @@ downloads:
   - downloaded_at, file_size, checksum
   - radar_code, field_type, observation_datetime
   - status (completed, failed, etc.)
-  
+
 partial_downloads:
   - filename, remote_path, local_path
   - bytes_downloaded, total_bytes
@@ -166,7 +166,7 @@ async def run_multiple():
         )
         daemon = DateBasedFTPDaemon(config)
         tasks.append(daemon.run())
-    
+
     await asyncio.gather(*tasks)  # All run concurrently
 ```
 

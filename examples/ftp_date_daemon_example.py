@@ -243,6 +243,70 @@ def example_multiple_radars():
     print("\n" + "=" * 60)
 
 
+def example_volume_filtering():
+    """
+    Example: Download only specific volume types and field types.
+
+    This shows how to filter BUFR files based on volume code, volume number,
+    and field types using the volume_types configuration.
+    """
+    print("=" * 60)
+    print("Volume Filtering Example")
+    print("=" * 60)
+
+    # Define valid volume types for radar
+    # Format: {vol_code: {vol_number: [field_types]}}
+    volume_types = {
+        "0315": {
+            "01": ["DBZH", "DBZV", "ZDR", "RHOHV", "PHIDP", "KDP"],
+            "02": ["VRAD", "WRAD"],
+        },
+        "0516": {
+            "01": ["DBZH", "DBZV"],
+            "02": ["VRAD"],
+        },
+    }
+
+    daemon_config = DateBasedDaemonConfig(
+        host=config.FTP_HOST,
+        username=config.FTP_USER,
+        password=config.FTP_PASS,
+        remote_base_path="/L2",
+        radar_code="RMA1",
+        local_download_dir=Path("./filtered_downloads"),
+        state_db=Path("./filtered_state.db"),
+        start_date=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        end_date=datetime(2025, 1, 2, tzinfo=timezone.utc),
+        volume_types=volume_types,  # Apply filtering
+    )
+
+    daemon = DateBasedFTPDaemon(daemon_config)
+
+    print("\nDaemon Configuration:")
+    print(f"  Radar: {daemon_config.radar_code}")
+    print("  Volume Filtering: Enabled")
+    print("  Configured volume types:")
+    for vol_code, vol_nums in volume_types.items():
+        print(f"    Volume {vol_code}:")
+        for vol_num, fields in vol_nums.items():
+            print(f"      Vol #{vol_num}: {', '.join(fields)}")
+
+    print("\nStarting daemon with volume filtering...")
+    print("Only files matching volume_types will be downloaded")
+    print("-" * 60)
+
+    try:
+        asyncio.run(daemon.run())
+    except KeyboardInterrupt:
+        print("\nDaemon stopped by user")
+
+    stats = daemon.get_stats()
+    print("\n" + "=" * 60)
+    print("Daemon Statistics:")
+    print(f"  Total files downloaded: {stats['total_downloaded']}")
+    print("=" * 60)
+
+
 if __name__ == "__main__":
     # Uncomment the example you want to run:
 
@@ -257,6 +321,12 @@ if __name__ == "__main__":
 
     # Check database statistics
     # example_check_database_stats()
+
+    # Monitor multiple radars concurrently
+    # example_multiple_radars()
+
+    # Download with volume filtering
+    # example_volume_filtering()
 
     # Monitor multiple radars concurrently
     # example_multiple_radars()

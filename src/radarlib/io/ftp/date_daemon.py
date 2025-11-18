@@ -3,10 +3,10 @@
 
 import asyncio
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from .client import FTPClient
 from .ftp import parse_ftp_path
@@ -34,6 +34,9 @@ class DateBasedDaemonConfig:
         max_concurrent_downloads: Maximum simultaneous downloads
         verify_checksums: Calculate and store file checksums
         resume_partial: Resume partially downloaded files
+        volume_types: Optional dict mapping volume codes to valid volume numbers and field types.
+                     Format: {'0315': {'01': ['DBZH', 'DBZV'], '02': ['VRAD']}}
+                     If None, no filtering is applied.
     """
 
     host: str
@@ -49,6 +52,7 @@ class DateBasedDaemonConfig:
     max_concurrent_downloads: int = 5
     verify_checksums: bool = True
     resume_partial: bool = True
+    volume_types: Optional[Dict[str, Dict[str, List[str]]]] = field(default=None)
 
 
 class DateBasedFTPDaemon:
@@ -251,10 +255,69 @@ class DateBasedFTPDaemon:
         """
         try:
             items = self.client.list_files(remote_path)
-            return [item for item in items if isinstance(item, str) and item.endswith(".BUFR")]
+            bufr_files = [item for item in items if isinstance(item, str) and item.endswith(".BUFR")]
+            return self._filter_files_by_volume(bufr_files)
         except Exception as e:
             logger.debug(f"Could not list files in {remote_path}: {e}")
             return []
+
+    def _filter_files_by_volume(self, filenames: List[str]) -> List[str]:
+        """
+        Filter files based on volume types configuration.
+
+        Args:
+            filenames: List of BUFR filenames
+
+        Returns:
+            Filtered list of filenames based on volume_types config
+        """
+        if not self.config.volume_types:
+            # No filtering if volume_types not configured
+            return filenames
+
+        filtered = []
+        for filename in filenames:
+            try:
+                # Parse filename: RMA1_0315_03_DBZH_20250925T000534Z.BUFR
+                parts = filename.split("_")
+                if len(parts) < 4:
+                    logger.debug(f"Skipping file with unexpected format: {filename}")
+                    continue
+
+                vol_code = parts[1]  # e.g., "0315"
+                vol_number = parts[2]  # e.g., "03"
+                field_type = parts[3]  # e.g., "DBZH"
+
+                # Check if volume code is in configuration
+                if vol_code not in self.config.volume_types:
+                    logger.debug(f"Skipping {filename}: volume code {vol_code} not in configured types")
+                    continue
+
+                # Check if volume number is valid for this volume code
+                vol_config = self.config.volume_types[vol_code]
+                if vol_number not in vol_config:
+                    logger.debug(
+                        f"Skipping {filename}: volume number {vol_number} not valid for volume code {vol_code}"
+                    )
+                    continue
+
+                # Check if field type is valid for this volume number
+                valid_fields = vol_config[vol_number]
+                if field_type not in valid_fields:
+                    logger.debug(
+                        f"Skipping {filename}: field type {field_type} not valid for vol {vol_code}/{vol_number}"
+                    )
+                    continue
+
+                # File passes all filters
+                filtered.append(filename)
+                logger.debug(f"Accepted {filename}: vol {vol_code}/{vol_number}, field {field_type}")
+
+            except Exception as e:
+                logger.warning(f"Error parsing filename {filename}: {e}")
+                continue
+
+        return filtered
 
     async def _download_file_async(self, remote_path: str, filename: str) -> bool:
         """
