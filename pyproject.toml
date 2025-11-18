@@ -12,11 +12,13 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.11,<4.0"
+aioftp = "^0.22.0"
 # Add your runtime dependencies here
 
 # dev deps using the new group API
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.0"
+pytest-asyncio = "^0.21.0"
 tox = "^3.24"
 flake8 = "^6.0"
 black = "^24.0"
