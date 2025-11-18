@@ -27,8 +27,9 @@ def test_end_to_end_bufr_to_pyart(tmp_save_path: Path):
 
     results = bufr_paths_to_pyart([str(bufr_files[0])], root_resources=None, save_path=tmp_save_path)
     assert results
-    netcdf_fname = get_netcdf_filename_from_bufr_filename(str(bufr_files[0].stem))
-    out_file = tmp_save_path / netcdf_fname
+    # Use canonical naming function to compute expected NetCDF filename
+    netcdf_name = get_netcdf_filename_from_bufr_filename(bufr_files[0].name)
+    out_file = tmp_save_path / netcdf_name
     assert out_file.exists()
 
 
