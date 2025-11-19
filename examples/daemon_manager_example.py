@@ -17,10 +17,7 @@ from radarlib import config
 from radarlib.io.ftp import DaemonManager, DaemonManagerConfig
 
 # Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 
 def example_basic_daemon_manager():
@@ -84,12 +81,12 @@ def example_basic_daemon_manager():
     print("\n  Download daemon:")
     print(f"    Enabled: {status['download_daemon']['enabled']}")
     print(f"    Running: {status['download_daemon']['running']}")
-    if status['download_daemon']['stats']:
+    if status["download_daemon"]["stats"]:
         print(f"    Files downloaded: {status['download_daemon']['stats']['total_downloaded']}")
     print("\n  Processing daemon:")
     print(f"    Enabled: {status['processing_daemon']['enabled']}")
     print(f"    Running: {status['processing_daemon']['running']}")
-    if status['processing_daemon']['stats']:
+    if status["processing_daemon"]["stats"]:
         print(f"    Volumes processed: {status['processing_daemon']['stats']['volumes_processed']}")
     print("=" * 60)
 
@@ -186,9 +183,7 @@ async def example_restart_daemon():
 
     print("\nRestarting processing daemon with new poll interval...")
     # Restart processing daemon with faster poll interval
-    await manager.restart_processing_daemon(
-        new_config={"processing_poll_interval": 15}
-    )
+    await manager.restart_processing_daemon(new_config={"processing_poll_interval": 15})
 
     print("Processing daemon restarted with 15s poll interval")
 
@@ -252,14 +247,16 @@ async def example_status_monitoring():
             print(f"\nStatus check #{i+1}:")
             print(f"  Manager running: {status['manager_running']}")
 
-            if status['download_daemon']['stats']:
-                stats = status['download_daemon']['stats']
+            if status["download_daemon"]["stats"]:
+                stats = status["download_daemon"]["stats"]
                 print(f"  Download: {stats['total_downloaded']} files")
 
-            if status['processing_daemon']['stats']:
-                stats = status['processing_daemon']['stats']
-                print(f"  Processing: {stats['volumes_processed']} volumes processed, "
-                      f"{stats['volumes_failed']} failed")
+            if status["processing_daemon"]["stats"]:
+                stats = status["processing_daemon"]["stats"]
+                print(
+                    f"  Processing: {stats['volumes_processed']} volumes processed, "
+                    f"{stats['volumes_failed']} failed"
+                )
 
     except KeyboardInterrupt:
         print("\nInterrupted")
