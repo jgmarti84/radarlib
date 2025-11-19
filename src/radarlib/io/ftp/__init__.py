@@ -4,6 +4,7 @@ FTP module for interacting with FTP servers and managing BUFR file downloads.
 
 from .client import FTPClient
 from .daemon import FTPDaemon, FTPDaemonConfig
+from .daemon_manager import DaemonManager, DaemonManagerConfig
 from .date_daemon import DateBasedDaemonConfig, DateBasedFTPDaemon
 from .ftp import (
     FTP_IsADirectoryError,
@@ -16,6 +17,7 @@ from .ftp import (
     list_files_in_remote_dir,
     parse_ftp_path,
 )
+from .processing_daemon import ProcessingDaemon, ProcessingDaemonConfig
 from .sqlite_state_tracker import SQLiteStateTracker
 from .state_tracker import FileStateTracker
 
@@ -26,6 +28,10 @@ __all__ = [
     "FTPDaemonConfig",
     "DateBasedFTPDaemon",
     "DateBasedDaemonConfig",
+    "ProcessingDaemon",
+    "ProcessingDaemonConfig",
+    "DaemonManager",
+    "DaemonManagerConfig",
     "FileStateTracker",
     "SQLiteStateTracker",
     # Legacy functions

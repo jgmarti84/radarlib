@@ -1,0 +1,291 @@
+# -*- coding: utf-8 -*-
+"""Simple daemon manager for FTP and Processing daemons."""
+
+import asyncio
+import logging
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, Optional
+
+from .date_daemon import DateBasedDaemonConfig, DateBasedFTPDaemon
+from .processing_daemon import ProcessingDaemon, ProcessingDaemonConfig
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class DaemonManagerConfig:
+    """
+    Configuration for the daemon manager.
+
+    Attributes:
+        radar_code: Radar code (e.g., "RMA1")
+        base_path: Base path for all files
+        ftp_host: FTP server hostname
+        ftp_user: FTP username
+        ftp_password: FTP password
+        ftp_base_path: Remote FTP base path
+        volume_types: Volume type configuration
+        start_date: Start date for downloads (UTC)
+        end_date: Optional end date for downloads
+        download_poll_interval: Seconds between download checks
+        processing_poll_interval: Seconds between processing checks
+        enable_download_daemon: Whether to start download daemon
+        enable_processing_daemon: Whether to start processing daemon
+    """
+
+    radar_code: str
+    base_path: Path
+    ftp_host: str
+    ftp_user: str
+    ftp_password: str
+    ftp_base_path: str
+    volume_types: Dict
+    start_date: datetime
+    end_date: Optional[datetime] = None
+    download_poll_interval: int = 60
+    processing_poll_interval: int = 30
+    enable_download_daemon: bool = True
+    enable_processing_daemon: bool = True
+
+
+class DaemonManager:
+    """
+    Simple manager for FTP download and BUFR processing daemons.
+
+    Provides easy start/stop control and configuration management for both daemons.
+
+    Example:
+        >>> manager = DaemonManager(config)
+        >>> await manager.start()  # Starts enabled daemons
+        >>> # ... later ...
+        >>> manager.stop()  # Stops all running daemons
+    """
+
+    def __init__(self, config: DaemonManagerConfig):
+        """
+        Initialize the daemon manager.
+
+        Args:
+            config: Manager configuration
+        """
+        self.config = config
+        self.download_daemon: Optional[DateBasedFTPDaemon] = None
+        self.processing_daemon: Optional[ProcessingDaemon] = None
+        self._tasks = []
+        self._running = False
+
+        # Setup paths
+        self.bufr_dir = config.base_path / "bufr"
+        self.netcdf_dir = config.base_path / "netcdf"
+        self.state_db = config.base_path / "state.db"
+
+        # Ensure directories exist
+        self.bufr_dir.mkdir(parents=True, exist_ok=True)
+        self.netcdf_dir.mkdir(parents=True, exist_ok=True)
+
+    def _create_download_daemon(self) -> DateBasedFTPDaemon:
+        """Create download daemon with current configuration."""
+        download_config = DateBasedDaemonConfig(
+            host=self.config.ftp_host,
+            username=self.config.ftp_user,
+            password=self.config.ftp_password,
+            remote_base_path=self.config.ftp_base_path,
+            radar_code=self.config.radar_code,
+            local_download_dir=self.bufr_dir,
+            state_db=self.state_db,
+            start_date=self.config.start_date,
+            end_date=self.config.end_date,
+            poll_interval=self.config.download_poll_interval,
+            volume_types=self.config.volume_types,
+        )
+        return DateBasedFTPDaemon(download_config)
+
+    def _create_processing_daemon(self) -> ProcessingDaemon:
+        """Create processing daemon with current configuration."""
+        processing_config = ProcessingDaemonConfig(
+            local_bufr_dir=self.bufr_dir,
+            local_netcdf_dir=self.netcdf_dir,
+            state_db=self.state_db,
+            volume_types=self.config.volume_types,
+            radar_code=self.config.radar_code,
+            poll_interval=self.config.processing_poll_interval,
+        )
+        return ProcessingDaemon(processing_config)
+
+    async def start(self) -> None:
+        """
+        Start enabled daemons.
+
+        Starts the download and/or processing daemons based on configuration.
+        Runs until stopped or cancelled.
+        """
+        if self._running:
+            logger.warning("Daemons are already running")
+            return
+
+        self._running = True
+        self._tasks = []
+
+        logger.info(f"Starting daemon manager for radar '{self.config.radar_code}'")
+
+        # Create and start download daemon
+        if self.config.enable_download_daemon:
+            self.download_daemon = self._create_download_daemon()
+            task = asyncio.create_task(self.download_daemon.run())
+            self._tasks.append(("download", task))
+            logger.info("Started download daemon")
+
+        # Create and start processing daemon
+        if self.config.enable_processing_daemon:
+            self.processing_daemon = self._create_processing_daemon()
+            task = asyncio.create_task(self.processing_daemon.run())
+            self._tasks.append(("processing", task))
+            logger.info("Started processing daemon")
+
+        if not self._tasks:
+            logger.warning("No daemons enabled in configuration")
+            return
+
+        # Wait for all tasks to complete
+        try:
+            await asyncio.gather(*[task for _, task in self._tasks])
+        except asyncio.CancelledError:
+            logger.info("Daemon manager cancelled")
+            self.stop()
+        except Exception as e:
+            logger.error(f"Error in daemon manager: {e}", exc_info=True)
+            self.stop()
+        finally:
+            self._running = False
+
+    def stop(self) -> None:
+        """Stop all running daemons."""
+        logger.info("Stopping all daemons")
+
+        if self.download_daemon:
+            self.download_daemon.stop()
+            logger.info("Stopped download daemon")
+
+        if self.processing_daemon:
+            self.processing_daemon.stop()
+            logger.info("Stopped processing daemon")
+
+        # Cancel any running tasks
+        for name, task in self._tasks:
+            if not task.done():
+                task.cancel()
+                logger.debug(f"Cancelled {name} task")
+
+        self._running = False
+
+    async def restart_download_daemon(self, new_config: Optional[Dict] = None) -> None:
+        """
+        Restart download daemon with optional new configuration.
+
+        Args:
+            new_config: Optional dict with config parameters to update
+        """
+        logger.info("Restarting download daemon")
+
+        # Stop existing download daemon
+        if self.download_daemon:
+            self.download_daemon.stop()
+            # Find and cancel its task
+            for i, (name, task) in enumerate(self._tasks):
+                if name == "download" and not task.done():
+                    task.cancel()
+                    try:
+                        await task
+                    except asyncio.CancelledError:
+                        pass
+                    self._tasks.pop(i)
+                    break
+
+        # Apply new configuration if provided
+        if new_config:
+            for key, value in new_config.items():
+                if hasattr(self.config, key):
+                    setattr(self.config, key, value)
+                    logger.debug(f"Updated config: {key} = {value}")
+
+        # Create and start new download daemon
+        self.download_daemon = self._create_download_daemon()
+        task = asyncio.create_task(self.download_daemon.run())
+        self._tasks.append(("download", task))
+        logger.info("Download daemon restarted")
+
+    async def restart_processing_daemon(self, new_config: Optional[Dict] = None) -> None:
+        """
+        Restart processing daemon with optional new configuration.
+
+        Args:
+            new_config: Optional dict with config parameters to update
+        """
+        logger.info("Restarting processing daemon")
+
+        # Stop existing processing daemon
+        if self.processing_daemon:
+            self.processing_daemon.stop()
+            # Find and cancel its task
+            for i, (name, task) in enumerate(self._tasks):
+                if name == "processing" and not task.done():
+                    task.cancel()
+                    try:
+                        await task
+                    except asyncio.CancelledError:
+                        pass
+                    self._tasks.pop(i)
+                    break
+
+        # Apply new configuration if provided
+        if new_config:
+            for key, value in new_config.items():
+                if hasattr(self.config, key):
+                    setattr(self.config, key, value)
+                    logger.debug(f"Updated config: {key} = {value}")
+
+        # Create and start new processing daemon
+        self.processing_daemon = self._create_processing_daemon()
+        task = asyncio.create_task(self.processing_daemon.run())
+        self._tasks.append(("processing", task))
+        logger.info("Processing daemon restarted")
+
+    def get_status(self) -> Dict:
+        """
+        Get status of all daemons.
+
+        Returns:
+            Dictionary with daemon status information
+        """
+        status = {
+            "manager_running": self._running,
+            "radar_code": self.config.radar_code,
+            "base_path": str(self.config.base_path),
+            "download_daemon": {
+                "enabled": self.config.enable_download_daemon,
+                "running": self.download_daemon is not None and self.download_daemon._running,
+                "stats": self.download_daemon.get_stats() if self.download_daemon else None,
+            },
+            "processing_daemon": {
+                "enabled": self.config.enable_processing_daemon,
+                "running": self.processing_daemon is not None and self.processing_daemon._running,
+                "stats": self.processing_daemon.get_stats() if self.processing_daemon else None,
+            },
+        }
+        return status
+
+    def update_config(self, **kwargs) -> None:
+        """
+        Update configuration parameters.
+
+        Args:
+            **kwargs: Configuration parameters to update
+        """
+        for key, value in kwargs.items():
+            if hasattr(self.config, key):
+                setattr(self.config, key, value)
+                logger.info(f"Updated config: {key} = {value}")
+            else:
+                logger.warning(f"Unknown config parameter: {key}")
