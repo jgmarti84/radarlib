@@ -8,12 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional
 
-from radarlib.io.ftp import (
-    DateBasedDaemonConfig,
-    DateBasedFTPDaemon,
-    ProcessingDaemon,
-    ProcessingDaemonConfig,
-)
+from radarlib.io.ftp import DateBasedDaemonConfig, DateBasedFTPDaemon, ProcessingDaemon, ProcessingDaemonConfig
 
 logger = logging.getLogger(__name__)
 
