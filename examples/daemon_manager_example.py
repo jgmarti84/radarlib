@@ -47,15 +47,15 @@ def example_basic_daemon_manager():
         base_path=base_path,
         ftp_host=config.FTP_HOST,
         ftp_user=config.FTP_USER,
-        ftp_password=config.FTP_PASSWORD,
+        ftp_password=config.FTP_PASS,
         ftp_base_path="/L2",
         volume_types=volume_types,
-        start_date=datetime(2025, 11, 17, tzinfo=timezone.utc),
+        start_date=datetime(2025, 11, 19, 10, tzinfo=timezone.utc),
         end_date=None,  # Continuous
         download_poll_interval=60,
         processing_poll_interval=30,
         enable_download_daemon=True,
-        enable_processing_daemon=True,
+        enable_processing_daemon=False,
     )
 
     # Create manager
