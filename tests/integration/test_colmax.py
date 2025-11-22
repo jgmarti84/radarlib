@@ -39,7 +39,7 @@ class TestGenerateColmax:
         radar = radar_object
         assert radar.nsweeps > 1, "Test radar must have multiple sweeps"
 
-        result_radar = generate_colmax(radar=radar)
+        result_radar = generate_colmax(radar=radar, field_for_colmax="DBZH")
 
         assert result_radar is not None, "COLMAX generation should succeed"
         assert "COLMAX" in result_radar.fields, "COLMAX field should be added to radar"
@@ -52,14 +52,15 @@ class TestGenerateColmax:
 
         result_radar = generate_colmax(
             radar=radar,
-            refl_filter=True,
-            refl_threshold=10,
-            rhv_filter=True,
-            rhv_threshold=0.9,
-            wrad_filter=True,
-            wrad_threshold=4.2,
-            zdr_filter=True,
-            zdr_threshold=8.5,
+            field_for_colmax="DBZH",
+            TH_filter=True,
+            TH_umbral=10,
+            RHOHV_filter=True,
+            RHOHV_umbral=0.9,
+            WRAD_filter=True,
+            WRAD_umbral=4.2,
+            TDR_filter=True,
+            TDR_umbral=8.5,
         )
 
         assert result_radar is not None
@@ -75,11 +76,10 @@ class TestGenerateColmax:
         if "DBZH" in radar.fields:
             result_radar = generate_colmax(
                 radar=radar,
-                source_field="DBZH",
-                target_field="colmax_dbzh",
+                field_for_colmax="DBZH",
             )
             assert result_radar is not None
-            assert "colmax_dbzh" in result_radar.fields
+            assert "COLMAX" in result_radar.fields
 
     # def test_colmax_insufficient_sweeps(self):
     #     """Test that COLMAX fails gracefully with single sweep."""
@@ -108,16 +108,17 @@ class TestGenerateColmax:
 
         result_radar = generate_colmax(
             radar=radar,
-            source_field="NONEXISTENT_FIELD",
+            field_for_colmax="NONEXISTENT_FIELD",
         )
 
-        assert result_radar is None, "COLMAX should fail with missing field"
+        # assert result_radar is None, "COLMAX should fail with missing field"
+        assert result_radar == radar, "returned radar object should be the same as input radar"
 
     def test_colmax_field_shape(self, radar_object):
         """Test that COLMAX field has correct shape."""
         radar = radar_object
 
-        result_radar = generate_colmax(radar=radar)
+        result_radar = generate_colmax(radar=radar, field_for_colmax="DBZH")
 
         colmax_field = result_radar.fields["COLMAX"]["data"]
         assert colmax_field.shape == (result_radar.nrays, result_radar.ngates)
@@ -126,7 +127,7 @@ class TestGenerateColmax:
         """Test that COLMAX field has proper metadata."""
         radar = radar_object
 
-        result_radar = generate_colmax(radar=radar)
+        result_radar = generate_colmax(radar=radar, field_for_colmax="DBZH")
 
         colmax_meta = result_radar.fields["COLMAX"]
         assert "standard_name" in colmax_meta
@@ -142,10 +143,11 @@ class TestGenerateColmax:
         # Run with no filters - should use source field directly
         result_radar = generate_colmax(
             radar=radar,
-            refl_filter=False,
-            rhv_filter=False,
-            wrad_filter=False,
-            zdr_filter=False,
+            field_for_colmax="DBZH",
+            TH_filter=False,
+            RHOHV_filter=False,
+            WRAD_filter=False,
+            TDR_filter=False,
         )
 
         assert result_radar is not None
@@ -158,7 +160,7 @@ class TestGenerateColmax:
         radar = radar_object
         original_field_count = len(radar.fields)
 
-        result_radar = generate_colmax(radar=radar)
+        result_radar = generate_colmax(radar=radar, field_for_colmax="DBZH")
 
         # Original radar should not be modified
         assert len(radar.fields) == original_field_count

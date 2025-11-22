@@ -21,18 +21,62 @@ logger = logging.getLogger(__name__)
 
 
 def generate_colmax(
+    radar: Radar = None,  # type: ignore
+    elev_limit1: float = 0,
+    idioma: int = 0,
+    field_for_colmax="TH",
+    RHOHV_filter=False,
+    RHOHV_umbral=0.9,
+    WRAD_filter=False,
+    WRAD_umbral=4.2,
+    TDR_filter=False,
+    TDR_umbral=8.5,
+    TH_filter=False,
+    TH_umbral=10,
+    logger_name=__name__,
+    save_changes=False,
+    path_out=None,
+) -> Radar:
+
+    return generate_colmax_(
+        radar,
+        use_sweeps_above=elev_limit1,
+        idioma=idioma,
+        source_field=field_for_colmax,
+        refl_filter=TH_filter,
+        refl_threshold=TH_umbral,
+        rhv_filter=RHOHV_filter,
+        rhv_threshold=RHOHV_umbral,
+        wrad_filter=WRAD_filter,
+        wrad_threshold=WRAD_umbral,
+        zdr_filter=TDR_filter,
+        zdr_threshold=TDR_umbral,
+        logger_name=logger_name,
+        save_changes=save_changes,
+        path_out=path_out,
+        verbose=False,
+    )
+
+
+def generate_colmax_(
     radar: Radar,
-    elev_limit: float = 0,
+    use_sweeps_above: float = 0,
+    idioma: int = 0,
     source_field: Optional[str] = None,
+    target_field: Optional[str] = None,
+    refl_field: Optional[str] = None,
     refl_filter: bool = False,
     refl_threshold: float = 10,
+    rhv_field: Optional[str] = None,
     rhv_filter: bool = True,
     rhv_threshold: float = 0.9,
+    wrad_field: Optional[str] = None,
     wrad_filter: bool = True,
     wrad_threshold: float = 4.2,
+    zdr_field: Optional[str] = None,
     zdr_filter: bool = True,
     zdr_threshold: float = 8.5,
-    target_field: Optional[str] = None,
+    logger_name: str = __name__,
     save_changes: bool = False,
     path_out: Optional[str] = None,
     regenerate_flag: bool = False,
@@ -49,7 +93,7 @@ def generate_colmax(
     ----------
     radar : Radar
         PyART Radar object containing multiple sweeps.
-    elev_limit : float, optional
+    use_sweeps_above : float, optional
         Elevation angle limit (degrees). Sweeps below this limit are excluded.
         Default is 0.
     source_field : str, optional
@@ -94,17 +138,26 @@ def generate_colmax(
     ValueError
         If radar has fewer than 2 sweeps or source field is missing.
     """
+    logger = logging.getLogger(logger_name)
+
     # Initialize field names
+    if refl_field is None:
+        refl_field = get_field_name("reflectivity")
+
+    if rhv_field is None:
+        rhv_field = get_field_name("cross_correlation_ratio")
+
+    if zdr_field is None:
+        zdr_field = get_field_name("differential_reflectivity")
+
+    if wrad_field is None:
+        wrad_field = get_field_name("spectrum_width")
+
     if source_field is None:
-        source_field = get_field_name("reflectivity")
+        source_field = refl_field
 
     if target_field is None:
         target_field = get_field_name("colmax")
-
-    refl_field = get_field_name("reflectivity")
-    rhv_field = get_field_name("cross_correlation_ratio")
-    zdr_field = get_field_name("differential_reflectivity")
-    wrad_field = get_field_name("spectrum_width")
 
     if root_cache is None:
         root_cache = config.ROOT_CACHE_PATH
@@ -112,11 +165,11 @@ def generate_colmax(
     # Validate input
     if source_field not in radar.fields:
         logger.error(f"Source field '{source_field}' not found in radar fields.")
-        return None
+        return radar
 
     if radar.nsweeps < 2:
         logger.debug("Cannot generate COLMAX: volume has fewer than 2 sweeps.")
-        return None
+        return radar
 
     # Create a deep copy of the radar object to avoid modifying the input
     radar_copy = deepcopy(radar)
@@ -150,11 +203,11 @@ def generate_colmax(
         field_to_use = source_field
 
     # Get sweep ordering and vertical vinculation map
-    sw_tuples_az, sweep_ref = get_ordered_sweep_list(radar_copy, elev_limit)
+    sw_tuples_az, sweep_ref = get_ordered_sweep_list(radar_copy, use_sweeps_above)
     vvg_map = get_vertical_vinculation_gate_map(
         radar=radar_copy,
         logger_name=logger.name,
-        use_sweeps_above=elev_limit,
+        use_sweeps_above=use_sweeps_above,
         save_vvg_map=True,
         root_cache=root_cache,
         verbose=verbose,

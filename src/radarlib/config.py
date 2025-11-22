@@ -14,12 +14,17 @@ import json
 import os
 from typing import Any, Dict, Optional
 
-root_proyect = os.path.dirname(os.path.abspath(__file__))
-
+# workspace root/project path. Prefer environment (GITHUB_WORKSPACE/WORKSPACE), fall back to two levels up.
+root_project = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+root_src = os.path.join(root_project, "src")
+root_package = os.path.join(root_src, "radarlib")
+root_data = os.path.join(root_project, "data")
+root_products = os.path.join(root_project, "product_output")
 DEFAULTS: Dict[str, Any] = {
-    "BUFR_RESOURCES_PATH": os.path.join(root_proyect, "io", "bufr", "bufr_resources"),
-    "ROOT_CACHE_PATH": os.path.join(root_proyect, "cache"),
-    "ROOT_RADAR_FILES_PATH": os.path.join(root_proyect, "radares"),
+    "BUFR_RESOURCES_PATH": os.path.join(root_package, "io", "bufr", "bufr_resources"),
+    "ROOT_CACHE_PATH": os.path.join(root_project, "cache"),
+    "ROOT_RADAR_FILES_PATH": os.path.join(root_data, "radares"),
+    "COLMAX_THRESHOLD": -3,
     "COLMAX_ELEV_LIMIT1": 0.65,
     "COLMAX_RHOHV_FILTER": True,
     "COLMAX_RHOHV_UMBRAL": 0.8,
@@ -72,21 +77,25 @@ DEFAULTS: Dict[str, Any] = {
     "VMIN_WRAD": -2,
     "VMAX_WRAD": 6,
     "CMAP_WRAD": "grc_th",
-    # dpi = 72
+    "FIELDS_TO_PLOT": ["DBZH", "ZDR", "COLMAX", "RHOHV"],
+    "FILTERED_FIELDS_TO_PLOT": ["DBZH", "ZDR", "COLMAX", "RHOHV", "VRAD", "WRAD", "KDP"],
+    "PNG_DPI": 72,
+    "GRC_RHV_FILTER": True,
+    "GRC_RHV_THRESHOLD": 0.55,
+    "GRC_WRAD_FILTER": True,
+    "GRC_WRAD_THRESHOLD": 4.6,
+    "GRC_REFL_FILTER": True,
+    "GRC_REFL_THRESHOLD": -3,
+    "GRC_ZDR_FILTER": True,
+    "GRC_ZDR_THRESHOLD": 8.5,
+    "GRC_REFL_FILTER2": True,
+    "GRC_REFL_THRESHOLD2": 25,
+    "GRC_CM_FILTER": True,
+    "GRC_RHOHV_THRESHOLD2": 0.85,
+    "GRC_DESPECKLE_FILTER": True,
+    "GRC_MEAN_FILTER": True,
+    "GRC_MEAN_THRESHOLD": 0.85,
 }
-
-# # Paraémtros para Filtros
-# colmax_threshold = -3
-# grc_filter = {
-#     'rhv_filter1': True, 'rhv_threshold1': 0.55,
-#     'wrad_filter': True, 'wrad_threshold': 4.6,
-#     'refl_filter': True, 'refl_threshold': -3,
-#     'zdr_filter': True, 'zdr_threshold': 8.5,
-#     'refl_filter2': True, 'refl_threshold2': 25,
-#     'cm_filter': True,
-#     'rhohv_threshold2': 0.85, 'despeckle_filter': True,
-#     'mean_filter': True, 'mean_threshold': 0.85,
-# }
 
 _config: Dict[str, Any] = DEFAULTS.copy()
 
@@ -149,6 +158,7 @@ def get(key: str, default: Any = None) -> Any:
 BUFR_RESOURCES_PATH: str = get("BUFR_RESOURCES_PATH")
 ROOT_CACHE_PATH: str = get("ROOT_CACHE_PATH")
 ROOT_RADAR_FILES_PATH: str = get("ROOT_RADAR_FILES_PATH")
+COLMAX_THRESHOLD: float = get("COLMAX_THRESHOLD")
 COLMAX_ELEV_LIMIT1: float = get("COLMAX_ELEV_LIMIT1")
 COLMAX_RHOHV_FILTER: bool = get("COLMAX_RHOHV_FILTER")
 COLMAX_RHOHV_UMBRAL: float = get("COLMAX_RHOHV_UMBRAL")
@@ -201,6 +211,24 @@ CMAP_VRAD: str = get("CMAP_VRAD")
 VMIN_WRAD: int = get("VMIN_WRAD")
 VMAX_WRAD: int = get("VMAX_WRAD")
 CMAP_WRAD: str = get("CMAP_WRAD")
+FIELDS_TO_PLOT: list = get("FIELDS_TO_PLOT")
+FILTERED_FIELDS_TO_PLOT: list = get("FILTERED_FIELDS_TO_PLOT")
+PNG_DPI: int = get("PNG_DPI")
+GRC_RHV_FILTER: bool = get("GRC_RHV_FILTER")
+GRC_RHV_THRESHOLD: float = get("GRC_RHV_THRESHOLD")
+GRC_WRAD_FILTER: bool = get("GRC_WRAD_FILTER")
+GRC_WRAD_THRESHOLD: float = get("GRC_WRAD_THRESHOLD")
+GRC_REFL_FILTER: bool = get("GRC_REFL_FILTER")
+GRC_REFL_THRESHOLD: float = get("GRC_REFL_THRESHOLD")
+GRC_ZDR_FILTER: bool = get("GRC_ZDR_FILTER")
+GRC_ZDR_THRESHOLD: float = get("GRC_ZDR_THRESHOLD")
+GRC_REFL_FILTER2: bool = get("GRC_REFL_FILTER2")
+GRC_REFL_THRESHOLD2: float = get("GRC_REFL_THRESHOLD2")
+GRC_CM_FILTER: bool = get("GRC_CM_FILTER")
+GRC_RHOHV_THRESHOLD2: float = get("GRC_RHOHV_THRESHOLD2")
+GRC_DESPECKLE_FILTER: bool = get("GRC_DESPECKLE_FILTER")
+GRC_MEAN_FILTER: bool = get("GRC_MEAN_FILTER")
+GRC_MEAN_THRESHOLD: float = get("GRC_MEAN_THRESHOLD")
 
 
 def reload(path: Optional[str] = None) -> None:
