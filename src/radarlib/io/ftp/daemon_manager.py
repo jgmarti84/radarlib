@@ -108,7 +108,7 @@ class DaemonManager:
             local_netcdf_dir=self.netcdf_dir,
             state_db=self.state_db,
             volume_types=self.config.volume_types,
-            radar_code=self.config.radar_code,
+            radar_name=self.config.radar_code,
             poll_interval=self.config.processing_poll_interval,
         )
         return ProcessingDaemon(processing_config)

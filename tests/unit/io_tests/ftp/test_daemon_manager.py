@@ -112,7 +112,7 @@ class TestDaemonManager:
         daemon = manager._create_processing_daemon()
 
         assert daemon is not None
-        assert daemon.config.radar_code == "RMA1"
+        assert daemon.config.radar_name == "RMA1"
         assert daemon.config.local_bufr_dir == manager.bufr_dir
         assert daemon.config.local_netcdf_dir == manager.netcdf_dir
 
