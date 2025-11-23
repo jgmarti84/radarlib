@@ -3,8 +3,10 @@ FTP module for interacting with FTP servers and managing BUFR file downloads.
 """
 
 from .client import FTPClient
+from .continuous_daemon import ContinuousDaemon, ContinuousDaemonConfig
 from .daemon import FTPDaemon, FTPDaemonConfig
-from .daemon_manager import DaemonManager, DaemonManagerConfig
+
+# from .daemon_manager import DaemonManager, DaemonManagerConfig
 from .date_daemon import DateBasedDaemonConfig, DateBasedFTPDaemon
 from .ftp import (
     FTP_IsADirectoryError,
@@ -26,6 +28,8 @@ __all__ = [
     "FTPClient",
     "FTPDaemon",
     "FTPDaemonConfig",
+    "ContinuousDaemon",
+    "ContinuousDaemonConfig",
     "DateBasedFTPDaemon",
     "DateBasedDaemonConfig",
     "ProcessingDaemon",
