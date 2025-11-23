@@ -13,7 +13,7 @@ import matplotlib.axes
 import matplotlib.figure
 import matplotlib.pyplot as plt
 import pyart
-from pyart.config import get_field_colormap
+from pyart.config import get_field_colormap, get_field_limits
 from pyart.core import Radar
 
 logger = logging.getLogger(__name__)
@@ -71,6 +71,7 @@ class FieldPlotConfig:
         vmax: Optional[float] = None,
         cmap: Optional[str] = None,
         sweep: Optional[int] = None,
+        gatefilter: Optional[pyart.filters.GateFilter] = None,
     ):
         """
         Initialize field plot configuration.
@@ -89,117 +90,35 @@ class FieldPlotConfig:
             Specific sweep index to plot. If None, uses lowest sweep for reflectivity.
         """
         self.field_name = field_name
-        self.sweep = sweep
 
-        # Use field-specific defaults if not provided
-        if vmin is None or vmax is None or cmap is None:
-            field_defaults = self._get_field_defaults(field_name)
-            self.vmin = vmin if vmin is not None else field_defaults["vmin"]
-            self.vmax = vmax if vmax is not None else field_defaults["vmax"]
-            self.cmap = cmap if cmap is not None else field_defaults["cmap"]
-            if self.sweep is None:
-                self.sweep = field_defaults.get("sweep")
-        else:
+        # Get PyART defaults for the field
+        field_limits = get_field_limits(field_name)
+        field_cmap = get_field_colormap(field_name)
+
+        # Use provided values or fall back to PyART defaults
+        if vmin is not None:
             self.vmin = vmin
-            self.vmax = vmax
-            self.cmap = cmap
-
-    @staticmethod
-    def _get_field_defaults(field_name: str) -> Dict[str, any]:  # type: ignore
-        """
-        Get default configuration values for specific radar fields.
-
-        Parameters
-        ----------
-        field_name : str
-            Name of the radar field
-
-        Returns
-        -------
-        dict
-            Dictionary with 'vmin', 'vmax', 'cmap', and optionally 'sweep' keys
-        """
-        field_configs = {
-            "TH": {
-                "vmin": -20,
-                "vmax": 70,
-                "cmap": get_field_colormap("TH"),
-                # sweep: will use get_lowest_nsweep (handled in calling code)
-            },
-            "TV": {
-                "vmin": -20,
-                "vmax": 70,
-                "cmap": get_field_colormap("TV"),
-            },
-            "DBZH": {
-                "vmin": -20,
-                "vmax": 70,
-                "cmap": get_field_colormap("DBZH"),
-            },
-            "DBZV": {
-                "vmin": -20,
-                "vmax": 70,
-                "cmap": get_field_colormap("DBZV"),
-            },
-            "COLMAX": {
-                "vmin": -20,
-                "vmax": 70,
-                "cmap": get_field_colormap("COLMAX"),
-                "sweep": 0,
-            },
-            "RHOHV": {
-                "vmin": 0,
-                "vmax": 1,
-                "cmap": get_field_colormap("RHOHV"),
-                "sweep": 0,
-            },
-            "PHIDP": {
-                "vmin": -5,
-                "vmax": 360,
-                "cmap": get_field_colormap("PHIDP"),
-                "sweep": 0,
-            },
-            "KDP": {
-                "vmin": -4,
-                "vmax": 8,
-                "cmap": get_field_colormap("KDP"),
-                "sweep": 0,
-            },
-            "ZDR": {
-                "vmin": -2,
-                "vmax": 7.5,
-                "cmap": get_field_colormap("ZDR"),
-                "sweep": 0,
-            },
-            "TDR": {
-                "vmin": -2,
-                "vmax": 7.5,
-                "cmap": get_field_colormap("TDR"),
-                "sweep": 0,
-            },
-            "VRAD": {
-                "vmin": -15,
-                "vmax": 15,
-                "cmap": get_field_colormap("VRAD"),
-                "sweep": 0,
-            },
-            "WRAD": {
-                "vmin": -2,
-                "vmax": 6,
-                "cmap": get_field_colormap("WRAD"),
-                "sweep": 0,
-            },
-        }
-
-        # Return field-specific config or sensible defaults
-        if field_name in field_configs:
-            return field_configs[field_name]
+        elif field_limits is not None and len(field_limits) >= 2:
+            self.vmin = field_limits[0]
         else:
-            return {
-                "vmin": -20,
-                "vmax": 80,
-                "cmap": "viridis",
-            }
+            self.vmin = -20
+
+        if vmax is not None:
+            self.vmax = vmax
+        elif field_limits is not None and len(field_limits) >= 2:
+            self.vmax = field_limits[1]
+        else:
+            self.vmax = 80
+
+        if cmap is not None:
+            self.cmap = cmap
+        elif field_cmap is not None:
+            self.cmap = field_cmap
+        else:
+            self.cmap = "viridis"
+
+        self.sweep = sweep if sweep is not None else 0
+        self.gatefilter = gatefilter
 
 
 def setup_plot_figure(config: RadarPlotConfig) -> Tuple[matplotlib.figure.Figure, matplotlib.axes.Axes]:
@@ -300,9 +219,24 @@ def plot_ppi_field(
     display = pyart.graph.RadarDisplay(radar)
 
     # Plot PPI with field configuration
+    # field=field, sweep=sweep,
+    # mask_tuple=None, vmin=vmin, vmax=vmax,
+    # norm=None, cmap=cmap, mask_outside=False, title=None, title_flag=False,
+    # axislabels=(None, None), axislabels_flag=False, colorbar_flag=False,
+    # colorbar_label=None, colorbar_orient='vertical', edges=True, gatefilter=None,
+    # filter_transitions=True, ax=None, fig=None, ticks=None, ticklabs=False)
+
+    #     field=field, sweep=sweep, mask_tuple=None, vmin=vmin, vmax=vmax,
+    # norm=None, cmap=cmap, mask_outside=False, title=None, title_flag=False,
+    # axislabels=(None, None), axislabels_flag=False, colorbar_flag=False,
+    # colorbar_label=None, colorbar_orient='vertical', edges=True,
+    # gatefilter=gatefilter, filter_transitions=True, ax=None, fig=None,
+    # ticks=None, ticklabs=False)
+
     display.plot_ppi(
         field=field,
         sweep=sweep,
+        mask_tuple=None,
         vmin=field_config.vmin,
         vmax=field_config.vmax,
         cmap=field_config.cmap,
@@ -313,6 +247,7 @@ def plot_ppi_field(
         axislabels_flag=config.axis_labels,
         colorbar_flag=config.colorbar,
         edges=True,
+        gatefilter=field_config.gatefilter,
         filter_transitions=True,
     )
 
@@ -586,6 +521,245 @@ def export_fields_to_geotiff(
     )
 
     return results
+
+
+def plot_fields_with_substitution(
+    radar: Radar,
+    fields_to_plot: List[str],
+    output_base_path: str,
+    field_substitutions: Optional[Dict[str, str]] = None,
+    sweep: Optional[int] = None,
+    config: Optional[RadarPlotConfig] = None,
+    field_configs: Optional[Dict[str, FieldPlotConfig]] = None,
+) -> Dict[str, str]:
+    """
+    Plot multiple fields with intelligent field substitution.
+
+    This function handles special cases where a field should be substituted with
+    another if it doesn't exist in the radar. For example, substituting 'DBZH' with
+    'TH' (reflectivity without filters) if the filtered version isn't available.
+
+    This is useful when working with radar data that may or may not have processed
+    (filtered) versions of fields.
+
+    Parameters
+    ----------
+    radar : Radar
+        PyART radar object
+    fields_to_plot : list of str
+        List of field names to attempt to plot
+    output_base_path : str
+        Base directory for output files
+    field_substitutions : dict, optional
+        Mapping of field names to their preferred substitutes.
+        Example: {'DBZH': 'TH', 'DBZV': 'TV'}
+        If a field in fields_to_plot is not in the radar, its substitute
+        (if defined) will be used instead. If neither exists, the field is skipped.
+    sweep : int, optional
+        Sweep index to plot. If None, uses field-specific defaults.
+    config : RadarPlotConfig, optional
+        Plot configuration for all fields. If None, uses defaults.
+    field_configs : dict, optional
+        Per-field plot configurations keyed by field name.
+
+    Returns
+    -------
+    results : dict
+        Dictionary mapping actual_field_name to output file path for successful plots.
+        Fields that couldn't be plotted are excluded.
+
+    Examples
+    --------
+    >>> # Define substitution rules: try to plot DBZH, fall back to TH if not available
+    >>> substitutions = {
+    ...     'DBZH': 'TH',   # reflectivity with filter -> reflectivity without filter
+    ...     'DBZV': 'TV',   # vertical reflectivity with filter -> without filter
+    ...     'VRAD': 'VRAD'  # no substitution (velocity stays as-is)
+    ... }
+    >>> results = plot_fields_with_substitution(
+    ...     radar,
+    ...     fields_to_plot=['DBZH', 'DBZV', 'VRAD', 'KDP'],
+    ...     output_base_path='output/',
+    ...     field_substitutions=substitutions
+    ... )
+    >>> for field, path in results.items():
+    ...     print(f"Plotted {field}: {path}")
+    """
+    if config is None:
+        config = RadarPlotConfig()
+
+    if field_configs is None:
+        field_configs = {}
+
+    if field_substitutions is None:
+        field_substitutions = {}
+
+    results = {}
+    skipped_fields = []
+
+    for requested_field in fields_to_plot:
+        # Determine which field to actually plot
+        field_to_use = requested_field
+
+        # Special case: if requested field doesn't exist, try its substitute
+        if requested_field not in radar.fields:
+            if requested_field in field_substitutions:
+                substitute = field_substitutions[requested_field]
+                if substitute in radar.fields:
+                    logger.debug(f"Field '{requested_field}' not found. Using substitute '{substitute}'")
+                    field_to_use = substitute
+                else:
+                    logger.warning(
+                        f"Field '{requested_field}' not in radar, and substitute "
+                        f"'{substitute}' also not found. Skipping."
+                    )
+                    skipped_fields.append(requested_field)
+                    continue
+            else:
+                logger.warning(f"Field '{requested_field}' not in radar. Skipping.")
+                skipped_fields.append(requested_field)
+                continue
+
+        try:
+            # Get field-specific config if available, otherwise auto-create with defaults
+            field_config = field_configs.get(field_to_use) or FieldPlotConfig(field_to_use)
+
+            # Determine sweep for this field
+            field_sweep = sweep if sweep is not None else field_config.sweep
+            if field_sweep is None:
+                from radarlib.utils.fields_utils import get_lowest_nsweep
+
+                field_sweep = get_lowest_nsweep(radar)
+
+            # Create output filename with sweep number
+            filename = f"{field_to_use}_sweep{field_sweep:02d}.png"
+
+            # Plot and save
+            output_path = plot_and_save_ppi(
+                radar,
+                field_to_use,
+                output_base_path,
+                filename,
+                sweep=field_sweep,
+                config=config,
+                field_config=field_config,
+            )
+
+            results[field_to_use] = output_path
+            logger.info(f"Successfully plotted field: {field_to_use} (sweep {field_sweep})")
+
+        except Exception as e:
+            logger.error(f"Error plotting field '{field_to_use}': {e}")
+            skipped_fields.append(field_to_use)
+            continue
+
+    # Log summary
+    if skipped_fields:
+        logger.warning(f"Skipped {len(skipped_fields)} fields: {skipped_fields}")
+
+    return results
+
+
+def plot_fields_with_metadata(
+    radar: Radar,
+    fields_to_plot: List[str],
+    output_base_path: str,
+    filename_pattern: Optional[str] = None,
+    field_substitutions: Optional[Dict[str, str]] = None,
+    sweep: Optional[int] = None,
+    config: Optional[RadarPlotConfig] = None,
+    field_configs: Optional[Dict[str, FieldPlotConfig]] = None,
+) -> Dict[str, str]:
+    """
+    Plot multiple fields and organize output using metadata from radar filename.
+
+    This function extends plot_fields_with_substitution by organizing output
+    files into date-based directory structures based on the radar's metadata.
+    This is useful for organizing radar products by observation time.
+
+    Parameters
+    ----------
+    radar : Radar
+        PyART radar object
+    fields_to_plot : list of str
+        List of field names to plot
+    output_base_path : str
+        Base directory for output files
+    filename_pattern : str, optional
+        Pattern for organizing output. Options:
+        - 'date_based': organize by YYYY/MM/DD/HH directories (default)
+        - 'flat': place all files directly in output_base_path
+    field_substitutions : dict, optional
+        Mapping of field names to their preferred substitutes
+    sweep : int, optional
+        Sweep index to plot
+    config : RadarPlotConfig, optional
+        Plot configuration
+    field_configs : dict, optional
+        Per-field plot configurations
+
+    Returns
+    -------
+    results : dict
+        Dictionary mapping field_name to output file path
+
+    Examples
+    --------
+    >>> # Organize plots by date from radar metadata
+    >>> results = plot_fields_with_metadata(
+    ...     radar,
+    ...     ['DBZH', 'VRAD'],
+    ...     output_base_path='output/',
+    ...     filename_pattern='date_based',
+    ...     field_substitutions={'DBZH': 'TH'}
+    ... )
+    >>> # Output structure: output/2025/11/18/12/DBZH_sweep00.png
+    """
+    if filename_pattern is None:
+        filename_pattern = "date_based"
+
+    # results = {}
+
+    # Extract datetime from radar metadata if available
+    output_dir = output_base_path
+    if filename_pattern == "date_based":
+        try:
+            metadata = radar.metadata
+            if "datetime" in metadata:
+                dt = metadata["datetime"]
+                output_dir = os.path.join(
+                    output_base_path,
+                    dt.strftime("%Y"),
+                    dt.strftime("%m"),
+                    dt.strftime("%d"),
+                    dt.strftime("%H"),
+                )
+            elif "time_coverage_start" in metadata:
+                # Try alternative metadata fields
+                import dateutil.parser
+
+                dt = dateutil.parser.isoparse(metadata["time_coverage_start"])
+                output_dir = os.path.join(
+                    output_base_path,
+                    dt.strftime("%Y"),
+                    dt.strftime("%m"),
+                    dt.strftime("%d"),
+                    dt.strftime("%H"),
+                )
+            logger.debug(f"Organizing output into: {output_dir}")
+        except Exception as e:
+            logger.warning(f"Could not extract datetime from radar metadata: {e}. Using flat structure.")
+
+    # Plot fields
+    return plot_fields_with_substitution(
+        radar,
+        fields_to_plot,
+        output_dir,
+        field_substitutions=field_substitutions,
+        sweep=sweep,
+        config=config,
+        field_configs=field_configs,
+    )
 
 
 def export_fields_to_multi_format(

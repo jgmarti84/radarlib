@@ -275,7 +275,7 @@ def read_radar_netcdf(
         raise NetCDFError(f"NetCDF file {netcdf_fname} does not exist.")
 
 
-def save_radar_netcdf(radar, filenam_oute=None, path_out=None, logger_name=__name__, **kwargs):
+def save_radar_netcdf(radar, filename_out=None, path_out=None, logger_name=__name__, **kwargs):
     """Guarda un objeto Py-ART Radar en formato NetCDF (CFRadial).
     Parámetros:
     - radar: Objeto Radar a guardar.
@@ -287,17 +287,17 @@ def save_radar_netcdf(radar, filenam_oute=None, path_out=None, logger_name=__nam
     """
     logger = logging.getLogger(logger_name)
 
-    if filenam_oute is None:
-        filenam_oute = radar.metadata["filename"]
-    if not filenam_oute.endswith(".nc"):
-        filenam_oute = filenam_oute + ".nc"
+    if filename_out is None:
+        filename_out = radar.metadata["filename"]
+    if not filename_out.endswith(".nc"):
+        filename_out = filename_out + ".nc"
 
     if path_out is None or path_out == "bbdd":
-        path_out = get_path_from_RMA_filename(filename=filenam_oute, **kwargs)
+        path_out = get_path_from_RMA_filename(filename=filename_out, **kwargs)
     os.makedirs(path_out, exist_ok=True)
 
     try:
-        fullname = os.path.join(path_out, filenam_oute)
+        fullname = os.path.join(path_out, filename_out)
         pyart.io.cfradial.write_cfradial(fullname, radar)
         return fullname
     except Exception as e:
