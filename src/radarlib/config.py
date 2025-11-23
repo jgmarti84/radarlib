@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from typing import Any, Dict, Optional
 
 root_proyect = os.path.dirname(os.path.abspath(__file__))
@@ -103,6 +104,11 @@ COLMAX_TDR_UMBRAL: float = get("COLMAX_TDR_UMBRAL")
 FTP_HOST: str = get("FTP_HOST")
 FTP_USER: str = get("FTP_USER")
 FTP_PASS: str = get("FTP_PASS")
+
+
+# Pre-compiled regex pattern for BUFR filename parsing (efficiency optimization)
+# Format: RADAR_VOLCODE_VOLNR_FIELD_TIMESTAMP.BUFR
+_BUFR_FILENAME_PATTERN = re.compile(r"^([A-Z0-9]+)_(\d{4})_(\d{2})_([A-Z]{2,10})_(\d{8}T\d{6}Z)\.BUFR$", re.IGNORECASE)
 
 
 def reload(path: Optional[str] = None) -> None:

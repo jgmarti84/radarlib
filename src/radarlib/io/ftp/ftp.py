@@ -460,7 +460,7 @@ def parse_ftp_path(remote_path: str):
     return {"radar_code": radar_code, "file_name": fname, "datetime": dt, "field_type": field_type}
 
 
-async def exponential_backoff_retry(coro, max_retries=5, base_delay=1, max_delay=60):
+async def exponential_backoff_retry(coro, max_retries: int = 5, base_delay: float = 1, max_delay: float = 60) -> None:
     """
     Retry an async callable (typically an FTP download) with exponential backoff.
 
