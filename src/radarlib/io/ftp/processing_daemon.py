@@ -300,18 +300,14 @@ class ProcessingDaemon:
             self.state_tracker.mark_volume_processing(volume_id, "processing")
 
             try:
-                # Get all files for this volume
+                # Get all files for this volume with their local paths
                 files = self.state_tracker.get_volume_files(radar_name, strategy, vol_nr, observation_datetime)
 
                 if not files:
                     raise ValueError(f"No files found for volume {volume_id}")
 
-                # Get full paths to BUFR files
-                bufr_paths = []
-                for filename in files:
-                    file_info = self.state_tracker.get_file_info(filename)
-                    if file_info and file_info["local_path"]:
-                        bufr_paths.append(file_info["local_path"])
+                # Extract local paths from file information
+                bufr_paths = [file_info["local_path"] for file_info in files if file_info.get("local_path")]
 
                 if not bufr_paths:
                     raise ValueError(f"No local paths found for volume {volume_id}")

@@ -591,9 +591,9 @@ class SQLiteStateTracker:
 
         return [dict(row) for row in cursor.fetchall()]
 
-    def get_volume_files(self, radar_name: str, strategy: str, vol_nr: str, observation_datetime: str) -> List[str]:
+    def get_volume_files(self, radar_name: str, strategy: str, vol_nr: str, observation_datetime: str) -> List[Dict]:
         """
-        Get all BUFR filenames for a specific volume.
+        Get all BUFR file information for a specific volume.
 
         Args:
             radar_name: Radar name
@@ -602,21 +602,29 @@ class SQLiteStateTracker:
             observation_datetime: Observation datetime (ISO format)
 
         Returns:
-            List of filenames
+            List of dictionaries with file information (filename, local_path, etc.)
         """
         conn = self._get_connection()
         cursor = conn.cursor()
 
         cursor.execute(
             """
-            SELECT filename FROM downloads
+            SELECT filename, local_path, file_size, field_type FROM downloads
             WHERE radar_name = ? AND strategy = ? AND vol_nr = ?
             AND observation_datetime = ? AND status = 'completed'
         """,
             (radar_name, strategy, vol_nr, observation_datetime),
         )
 
-        return [row[0] for row in cursor.fetchall()]
+        return [
+            {
+                "filename": row[0],
+                "local_path": row[1],
+                "file_size": row[2],
+                "field_type": row[3],
+            }
+            for row in cursor.fetchall()
+        ]
 
     def get_volumes_by_status(self, status: str) -> List[Dict]:
         """
