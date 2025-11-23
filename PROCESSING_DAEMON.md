@@ -24,8 +24,8 @@ The `SQLiteStateTracker` has been extended with a new `volume_processing` table 
 **Database Schema**:
 ```sql
 volume_processing:
-  - volume_id (unique identifier: RADAR_VOLCODE_VOLNUM_DATETIME)
-  - radar_code, vol_code, vol_number
+  - volume_id (unique identifier: RADAR_STRATEGY_VOLNR_DATETIME)
+  - radar_name, strategy, vol_nr
   - observation_datetime
   - status (pending, processing, completed, failed)
   - netcdf_path (path to generated NetCDF file)
@@ -86,7 +86,7 @@ config = ProcessingDaemonConfig(
     local_netcdf_dir=Path("./downloads/RMA1/netcdf"),
     state_db=Path("./downloads/RMA1/state.db"),
     volume_types=volume_types,
-    radar_code="RMA1",
+    radar_name="RMA1",
     poll_interval=30,  # Check every 30 seconds
     max_concurrent_processing=2,  # Process 2 volumes at once
 )
@@ -137,7 +137,7 @@ processing_config = ProcessingDaemonConfig(
     local_netcdf_dir=Path("./downloads/RMA1/netcdf"),
     state_db=Path("./downloads/RMA1/state.db"),
     volume_types=volume_types,
-    radar_code="RMA1",
+    radar_name="RMA1",
 )
 
 async def run_pipeline():
@@ -182,8 +182,8 @@ print(f"Ready to process: {len(ready)}")
 if ready:
     volume = ready[0]
     print(f"\nVolume: {volume['volume_id']}")
-    print(f"  Radar: {volume['radar_code']}")
-    print(f"  Vol Code/Num: {volume['vol_code']}/{volume['vol_number']}")
+    print(f"  Radar: {volume['radar_name']}")
+    print(f"  Strategy/Vol Nr: {volume['strategy']}/{volume['vol_nr']}")
     print(f"  Time: {volume['observation_datetime']}")
     print(f"  Expected fields: {volume['expected_fields']}")
     print(f"  Downloaded fields: {volume['downloaded_fields']}")
@@ -309,7 +309,7 @@ class ProcessingDaemonConfig:
     local_netcdf_dir: Path            # Directory for NetCDF output
     state_db: Path                    # SQLite database (shared with download daemon)
     volume_types: Dict[str, Dict]     # Expected field types per volume
-    radar_code: str                   # Radar to process (e.g., "RMA1")
+    radar_name: str                   # Radar to process (e.g., "RMA1")
     poll_interval: int = 30           # Seconds between checks
     max_concurrent_processing: int = 2 # Max simultaneous volumes
     root_resources: Optional[Path] = None  # BUFR decoder resources

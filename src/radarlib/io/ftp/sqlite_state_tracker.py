@@ -283,7 +283,7 @@ class SQLiteStateTracker:
         Args:
             start_date: Start of date range
             end_date: End of date range
-            radar_code: Optional radar code to filter by
+            radar_name: Optional radar name to filter by
 
         Returns:
             List of filenames in the range
@@ -381,7 +381,7 @@ class SQLiteStateTracker:
         Get the downloaded BUFR file with the latest observation time.
 
         Args:
-            radar_code: Optional filter by radar code. If None, returns latest across all radars.
+            radar_name: Optional filter by radar name. If None, returns latest across all radars.
 
         Returns:
             Dictionary with file info (filename, remote_path, local_path, observation_datetime, etc.)
