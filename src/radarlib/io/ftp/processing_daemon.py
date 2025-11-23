@@ -23,7 +23,7 @@ class ProcessingDaemonConfig:
         state_db: Path to SQLite database for tracking state
         volume_types: Dict mapping volume codes to valid volume numbers and field types.
                      Format: {'0315': {'01': ['DBZH', 'DBZV'], '02': ['VRAD']}}
-        radar_code: Radar code to process (e.g., "RMA1")
+        radar_name: Radar name to process (e.g., "RMA1")
         poll_interval: Seconds between checks for new complete volumes
         max_concurrent_processing: Maximum simultaneous volume processing tasks
         root_resources: Path to BUFR resources directory (for decoding)
@@ -35,7 +35,7 @@ class ProcessingDaemonConfig:
     local_netcdf_dir: Path
     state_db: Path
     volume_types: Dict[str, Dict[str, List[str]]]
-    radar_code: str
+    radar_name: str
     poll_interval: int = 30
     max_concurrent_processing: int = 2
     root_resources: Optional[Path] = None
@@ -59,7 +59,7 @@ class ProcessingDaemon:
         ...     local_netcdf_dir=Path("./netcdf"),
         ...     state_db=Path("./state.db"),
         ...     volume_types={'0315': {'01': ['DBZH', 'DBZV'], '02': ['VRAD']}},
-        ...     radar_code="RMA1"
+        ...     radar_name="RMA1"
         ... )
         >>> daemon = ProcessingDaemon(config)
         >>> asyncio.run(daemon.run())
@@ -96,7 +96,7 @@ class ProcessingDaemon:
         self._running = True
         self._processing_semaphore = asyncio.Semaphore(self.config.max_concurrent_processing)
 
-        logger.info(f"Starting BUFR processing daemon for radar '{self.config.radar_code}'")
+        logger.info(f"Starting BUFR processing daemon for radar '{self.config.radar_name}'")
         logger.info(f"Monitoring BUFR files in '{self.config.local_bufr_dir}'")
         logger.info(f"Saving NetCDF files to '{self.config.local_netcdf_dir}'")
 
@@ -142,53 +142,53 @@ class ProcessingDaemon:
 
         cursor.execute(
             """
-            SELECT filename, radar_code, field_type, observation_datetime, local_path
+            SELECT filename, radar_name, field_type, observation_datetime, local_path
             FROM downloads
-            WHERE radar_code = ? AND status = 'completed'
+            WHERE radar_name = ? AND status = 'completed'
             ORDER BY observation_datetime
         """,
-            (self.config.radar_code,),
+            (self.config.radar_name,),
         )
 
         files = cursor.fetchall()
 
-        # Group files by volume (radar + vol_code + vol_number + timestamp)
+        # Group files by volume (radar + strategy + vol_nr + timestamp)
         volumes: Dict[str, Dict] = {}
 
         for row in files:
             filename = row[0]
-            radar_code = row[1]
+            radar_name = row[1]
             field_type = row[2]
             observation_datetime = row[3]
             local_path = row[4]
 
-            # Parse filename: RADAR_VOLCODE_VOLNUM_FIELD_TIMESTAMP.BUFR
+            # Parse filename: RADAR_STRATEGY_VOLNR_FIELD_TIMESTAMP.BUFR
             try:
                 parts = filename.split("_")
                 if len(parts) < 4:
                     logger.debug(f"Skipping file with unexpected format: {filename}")
                     continue
 
-                vol_code = parts[1]
-                vol_number = parts[2]
+                strategy = parts[1]
+                vol_nr = parts[2]
 
                 # Check if this volume type is configured
-                if vol_code not in self.config.volume_types:
+                if strategy not in self.config.volume_types:
                     continue
 
-                if vol_number not in self.config.volume_types[vol_code]:
+                if vol_nr not in self.config.volume_types[strategy]:
                     continue
 
                 # Create volume key
-                volume_id = self.state_tracker.get_volume_id(radar_code, vol_code, vol_number, observation_datetime)
+                volume_id = self.state_tracker.get_volume_id(radar_name, strategy, vol_nr, observation_datetime)
 
                 if volume_id not in volumes:
                     volumes[volume_id] = {
-                        "radar_code": radar_code,
-                        "vol_code": vol_code,
-                        "vol_number": vol_number,
+                        "radar_name": radar_name,
+                        "strategy": strategy,
+                        "vol_nr": vol_nr,
                         "observation_datetime": observation_datetime,
-                        "expected_fields": self.config.volume_types[vol_code][vol_number],
+                        "expected_fields": self.config.volume_types[strategy][vol_nr],
                         "downloaded_fields": set(),
                         "files": {},
                     }
@@ -222,9 +222,9 @@ class ProcessingDaemon:
                 # Register new volume
                 self.state_tracker.register_volume(
                     volume_id,
-                    vol_info["radar_code"],
-                    vol_info["vol_code"],
-                    vol_info["vol_number"],
+                    vol_info["radar_name"],
+                    vol_info["strategy"],
+                    vol_info["vol_nr"],
                     vol_info["observation_datetime"],
                     vol_info["expected_fields"],
                     is_complete,
@@ -270,9 +270,9 @@ class ProcessingDaemon:
         """
         async with self._processing_semaphore:
             volume_id = volume_info["volume_id"]
-            radar_code = volume_info["radar_code"]
-            vol_code = volume_info["vol_code"]
-            vol_number = volume_info["vol_number"]
+            radar_name = volume_info["radar_name"]
+            strategy = volume_info["strategy"]
+            vol_nr = volume_info["vol_nr"]
             observation_datetime = volume_info["observation_datetime"]
 
             logger.info(f"Processing volume {volume_id}...")
@@ -282,7 +282,7 @@ class ProcessingDaemon:
 
             try:
                 # Get all files for this volume
-                files = self.state_tracker.get_volume_files(radar_code, vol_code, vol_number, observation_datetime)
+                files = self.state_tracker.get_volume_files(radar_name, strategy, vol_nr, observation_datetime)
 
                 if not files:
                     raise ValueError(f"No files found for volume {volume_id}")
@@ -302,7 +302,7 @@ class ProcessingDaemon:
                 # Process in executor to avoid blocking
                 loop = asyncio.get_event_loop()
                 netcdf_path = await loop.run_in_executor(
-                    None, self._decode_and_save_volume, bufr_paths, volume_id, radar_code
+                    None, self._decode_and_save_volume, bufr_paths, volume_id, radar_name
                 )
 
                 # Mark as completed
@@ -318,14 +318,14 @@ class ProcessingDaemon:
                 self._stats["volumes_failed"] += 1
                 return False
 
-    def _decode_and_save_volume(self, bufr_paths: List[str], volume_id: str, radar_code: str) -> Path:
+    def _decode_and_save_volume(self, bufr_paths: List[str], volume_id: str, radar_name: str) -> Path:
         """
         Decode BUFR files and save as NetCDF.
 
         Args:
             bufr_paths: List of paths to BUFR files
             volume_id: Unique volume identifier
-            radar_code: Radar code
+            radar_name: Radar name
 
         Returns:
             Path to saved NetCDF file
