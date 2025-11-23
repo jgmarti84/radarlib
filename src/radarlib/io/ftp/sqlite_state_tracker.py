@@ -641,3 +641,49 @@ class SQLiteStateTracker:
         )
 
         return [dict(row) for row in cursor.fetchall()]
+
+    def get_latest_registered_volume_datetime(self, radar_name: str) -> Optional[str]:
+        """
+        Get the observation datetime of the latest registered volume for a radar.
+
+        Args:
+            radar_name: Radar name to filter by
+
+        Returns:
+            ISO format datetime string of latest volume, or None if no volumes exist
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT observation_datetime FROM volume_processing
+            WHERE radar_name = ?
+            ORDER BY observation_datetime DESC
+            LIMIT 1
+        """,
+            (radar_name,),
+        )
+
+        row = cursor.fetchone()
+        return row[0] if row else None
+
+    def get_unprocessed_volumes(self) -> List[Dict]:
+        """
+        Get all volumes that haven't been processed yet (both complete and incomplete).
+
+        Returns:
+            List of volume info dictionaries
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT * FROM volume_processing
+            WHERE status = 'pending'
+            ORDER BY observation_datetime ASC
+        """
+        )
+
+        return [dict(row) for row in cursor.fetchall()]

@@ -135,20 +135,38 @@ class ProcessingDaemon:
 
         Scans the downloads table for files belonging to volumes and determines
         if each volume is complete based on the expected field types.
+        Only fetches new files since the last registered volume to improve efficiency.
         """
         # Get all downloaded files for this radar
         conn = self.state_tracker._get_connection()
         cursor = conn.cursor()
 
-        cursor.execute(
-            """
-            SELECT filename, radar_name, field_type, observation_datetime, local_path
-            FROM downloads
-            WHERE radar_name = ? AND status = 'completed'
-            ORDER BY observation_datetime
-        """,
-            (self.config.radar_name,),
-        )
+        # Get the latest registered volume's observation datetime to avoid re-processing
+        latest_volume_datetime = self.state_tracker.get_latest_registered_volume_datetime(self.config.radar_name)
+        
+        if latest_volume_datetime:
+            # Only fetch files with observation_datetime >= latest registered volume
+            cursor.execute(
+                """
+                SELECT filename, radar_name, strategy, vol_nr, field_type, observation_datetime, local_path
+                FROM downloads
+                WHERE radar_name = ? AND status = 'completed' 
+                  AND observation_datetime >= ?
+                ORDER BY observation_datetime
+            """,
+                (self.config.radar_name, latest_volume_datetime),
+            )
+        else:
+            # First run - fetch all files
+            cursor.execute(
+                """
+                SELECT filename, radar_name, strategy, vol_nr, field_type, observation_datetime, local_path
+                FROM downloads
+                WHERE radar_name = ? AND status = 'completed'
+                ORDER BY observation_datetime
+            """,
+                (self.config.radar_name,),
+            )
 
         files = cursor.fetchall()
 
@@ -158,47 +176,40 @@ class ProcessingDaemon:
         for row in files:
             filename = row[0]
             radar_name = row[1]
-            field_type = row[2]
-            observation_datetime = row[3]
-            local_path = row[4]
+            strategy = row[2]
+            vol_nr = row[3]
+            field_type = row[4]
+            observation_datetime = row[5]
+            local_path = row[6]
 
-            # Parse filename: RADAR_STRATEGY_VOLNR_FIELD_TIMESTAMP.BUFR
-            try:
-                parts = filename.split("_")
-                if len(parts) < 4:
-                    logger.debug(f"Skipping file with unexpected format: {filename}")
-                    continue
-
-                strategy = parts[1]
-                vol_nr = parts[2]
-
-                # Check if this volume type is configured
-                if strategy not in self.config.volume_types:
-                    continue
-
-                if vol_nr not in self.config.volume_types[strategy]:
-                    continue
-
-                # Create volume key
-                volume_id = self.state_tracker.get_volume_id(radar_name, strategy, vol_nr, observation_datetime)
-
-                if volume_id not in volumes:
-                    volumes[volume_id] = {
-                        "radar_name": radar_name,
-                        "strategy": strategy,
-                        "vol_nr": vol_nr,
-                        "observation_datetime": observation_datetime,
-                        "expected_fields": self.config.volume_types[strategy][vol_nr],
-                        "downloaded_fields": set(),
-                        "files": {},
-                    }
-
-                volumes[volume_id]["downloaded_fields"].add(field_type)
-                volumes[volume_id]["files"][field_type] = local_path
-
-            except Exception as e:
-                logger.warning(f"Error parsing filename {filename}: {e}")
+            # Skip if strategy or vol_nr is None (shouldn't happen but defensive)
+            if not strategy or not vol_nr:
+                logger.warning(f"Skipping file {filename} with missing strategy or vol_nr")
                 continue
+
+            # Check if this volume type is configured
+            if strategy not in self.config.volume_types:
+                continue
+
+            if vol_nr not in self.config.volume_types[strategy]:
+                continue
+
+            # Create volume key
+            volume_id = self.state_tracker.get_volume_id(radar_name, strategy, vol_nr, observation_datetime)
+
+            if volume_id not in volumes:
+                volumes[volume_id] = {
+                    "radar_name": radar_name,
+                    "strategy": strategy,
+                    "vol_nr": vol_nr,
+                    "observation_datetime": observation_datetime,
+                    "expected_fields": self.config.volume_types[strategy][vol_nr],
+                    "downloaded_fields": set(),
+                    "files": {},
+                }
+
+            volumes[volume_id]["downloaded_fields"].add(field_type)
+            volumes[volume_id]["files"][field_type] = local_path
 
         # Update volume status in database
         for volume_id, vol_info in volumes.items():
@@ -238,20 +249,23 @@ class ProcessingDaemon:
 
     async def _process_complete_volumes(self) -> None:
         """
-        Process all complete volumes that haven't been processed yet.
+        Process all volumes that haven't been processed yet.
+        
+        This includes both complete and incomplete volumes.
+        Incomplete volumes are processed with available fields and marked as incomplete.
         """
-        # Get complete unprocessed volumes
-        complete_volumes = self.state_tracker.get_complete_unprocessed_volumes()
+        # Get all unprocessed volumes (complete and incomplete)
+        unprocessed_volumes = self.state_tracker.get_unprocessed_volumes()
 
-        if not complete_volumes:
-            logger.debug("No complete volumes to process")
+        if not unprocessed_volumes:
+            logger.debug("No volumes to process")
             return
 
-        logger.info(f"Found {len(complete_volumes)} complete volume(s) to process")
+        logger.info(f"Found {len(unprocessed_volumes)} unprocessed volume(s) to process")
 
         # Process volumes concurrently
         tasks = []
-        for volume_info in complete_volumes:
+        for volume_info in unprocessed_volumes:
             task = self._process_volume_async(volume_info)
             tasks.append(task)
 
@@ -261,6 +275,9 @@ class ProcessingDaemon:
     async def _process_volume_async(self, volume_info: Dict) -> bool:
         """
         Process a single volume asynchronously.
+        
+        Processes both complete and incomplete volumes.
+        Incomplete volumes are processed with available fields.
 
         Args:
             volume_info: Dictionary with volume information from database
@@ -274,8 +291,10 @@ class ProcessingDaemon:
             strategy = volume_info["strategy"]
             vol_nr = volume_info["vol_nr"]
             observation_datetime = volume_info["observation_datetime"]
+            is_complete = volume_info.get("is_complete", 0) == 1
 
-            logger.info(f"Processing volume {volume_id}...")
+            completeness_str = "complete" if is_complete else "incomplete"
+            logger.info(f"Processing {completeness_str} volume {volume_id}...")
 
             # Mark as processing
             self.state_tracker.mark_volume_processing(volume_id, "processing")
@@ -297,7 +316,7 @@ class ProcessingDaemon:
                 if not bufr_paths:
                     raise ValueError(f"No local paths found for volume {volume_id}")
 
-                logger.info(f"Decoding {len(bufr_paths)} BUFR files for volume {volume_id}")
+                logger.info(f"Decoding {len(bufr_paths)} BUFR files for {completeness_str} volume {volume_id}")
 
                 # Process in executor to avoid blocking
                 loop = asyncio.get_event_loop()
@@ -307,12 +326,12 @@ class ProcessingDaemon:
 
                 # Mark as completed
                 self.state_tracker.mark_volume_processing(volume_id, "completed", str(netcdf_path))
-                logger.info(f"Successfully processed volume {volume_id} -> {netcdf_path}")
+                logger.info(f"Successfully processed {completeness_str} volume {volume_id} -> {netcdf_path}")
                 self._stats["volumes_processed"] += 1
                 return True
 
             except Exception as e:
-                error_msg = f"Failed to process volume {volume_id}: {str(e)}"
+                error_msg = f"Failed to process {completeness_str} volume {volume_id}: {str(e)}"
                 logger.error(error_msg, exc_info=True)
                 self.state_tracker.mark_volume_processing(volume_id, "failed", error_message=error_msg)
                 self._stats["volumes_failed"] += 1
