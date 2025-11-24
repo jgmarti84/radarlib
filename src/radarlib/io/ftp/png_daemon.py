@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from radarlib.io.pyart.vol_process import process_volume
+
 from .sqlite_state_tracker import SQLiteStateTracker
 
 logger = logging.getLogger(__name__)
@@ -263,13 +265,6 @@ class PNGGenerationDaemon:
         Raises:
             Exception if PNG generation fails
         """
-        from radarlib.io.pyart.vol_process import process_volume
-
-        # Extract volume type information
-        radar_name = volume_info["radar_name"]
-        strategy = volume_info["strategy"]
-        vol_nr = volume_info["vol_nr"]
-
         # Build volume types dict for this specific volume
         vol_types = self.config.volume_types
 
