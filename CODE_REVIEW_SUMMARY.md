@@ -1,11 +1,84 @@
 # Code Review Summary: Daemon System
 
 **Date**: 2025-11-24  
-**Scope**: Three main daemons (ContinuousDaemon, ProcessingDaemon, ProductGenerationDaemon) and their supporting ecosystem
+**Scope**: Three main daemons (DownloadDaemon, ProcessingDaemon, ProductGenerationDaemon) and their supporting ecosystem
 
 ## Overview
 
-This document summarizes the code review conducted on the daemon system, focusing on code quality, test coverage, logging standardization, and removal of unused code.
+This document summarizes the code review conducted on the daemon system, focusing on code quality, test coverage, logging standardization, and code organization.
+
+## New Code Organization
+
+The codebase has been reorganized for better clarity and maintainability:
+
+### Module Structure
+
+```
+src/radarlib/
+├── __init__.py
+├── config.py                    # Configuration settings
+├── colormaps.py                 # Custom colormaps
+├── pyart_defaults.py            # PyART default settings
+│
+├── daemons/                     # NEW: All daemons in one place
+│   ├── __init__.py              # Main exports
+│   ├── download_daemon.py       # Downloads BUFR files (renamed from continuous_daemon)
+│   ├── processing_daemon.py     # Processes BUFR to NetCDF
+│   ├── product_daemon.py        # Generates visualizations
+│   ├── manager.py               # Orchestrates all daemons
+│   └── legacy/                  # Legacy daemons for backward compatibility
+│       ├── __init__.py
+│       ├── ftp_daemon.py        # Old FTP daemon
+│       └── date_daemon.py       # Date-based daemon
+│
+├── state/                       # NEW: State tracking module
+│   ├── __init__.py
+│   ├── file_tracker.py          # JSON-based state tracking
+│   └── sqlite_tracker.py        # SQLite-based state tracking
+│
+├── io/
+│   ├── bufr/                    # BUFR file handling
+│   │   ├── bufr.py              # BUFR decoding
+│   │   ├── pyart_writer.py      # BUFR to PyART conversion
+│   │   └── xml_scan.py          # XML scanning
+│   │
+│   ├── ftp/                     # FTP client functionality
+│   │   ├── client.py            # Synchronous FTP client
+│   │   ├── ftp_client.py        # Async FTP client (RadarFTPClientAsync)
+│   │   └── ftp.py               # FTP utility functions
+│   │
+│   └── pyart/                   # PyART radar operations
+│       ├── colmax.py            # COLMAX generation
+│       ├── filters.py           # Data filtering
+│       ├── pyart_radar.py       # Radar operations
+│       ├── radar_png_plotter.py # PNG generation
+│       └── vol_process.py       # Volume processing
+│
+└── utils/                       # Utility functions
+    ├── fields_utils.py          # Field utilities
+    └── names_utils.py           # Naming utilities
+```
+
+### Import Examples
+
+**New recommended imports:**
+```python
+# Daemons (new names)
+from radarlib.daemons import DownloadDaemon, DownloadDaemonConfig
+from radarlib.daemons import ProcessingDaemon, ProcessingDaemonConfig
+from radarlib.daemons import ProductGenerationDaemon, ProductGenerationDaemonConfig
+from radarlib.daemons import DaemonManager, DaemonManagerConfig
+
+# State tracking
+from radarlib.state import SQLiteStateTracker, FileStateTracker
+```
+
+**Backward compatible imports (still work):**
+```python
+# Old import paths still work
+from radarlib.io.ftp import ContinuousDaemon, ProcessingDaemon
+from radarlib.io.ftp import SQLiteStateTracker, FileStateTracker
+```
 
 ## Key Findings
 
@@ -13,44 +86,45 @@ This document summarizes the code review conducted on the daemon system, focusin
 
 The system consists of three main daemons working in a pipeline:
 
-1. **ContinuousDaemon** (`continuous_daemon.py`)
+1. **DownloadDaemon** (`daemons/download_daemon.py`)
    - Purpose: Downloads BUFR files from FTP server
-   - Dependencies: `ftp_client.py`, `sqlite_state_tracker.py`, `names_utils.py`
+   - New name: `DownloadDaemon` (was `ContinuousDaemon`)
+   - Dependencies: `ftp_client.py`, `sqlite_tracker.py`, `names_utils.py`
    - Test Coverage: **77%** (improved from 48%)
    - Status: ✅ Well-tested and production-ready
 
-2. **ProcessingDaemon** (`processing_daemon.py`)
+2. **ProcessingDaemon** (`daemons/processing_daemon.py`)
    - Purpose: Converts BUFR files to NetCDF format
-   - Dependencies: `bufr.py`, `pyart_writer.py`, `sqlite_state_tracker.py`
+   - Dependencies: `bufr.py`, `pyart_writer.py`, `sqlite_tracker.py`
    - Test Coverage: **59%** (improved from 19%)
    - Status: ✅ Good test coverage, production-ready
 
-3. **ProductGenerationDaemon** (`product_daemon.py`)
+3. **ProductGenerationDaemon** (`daemons/product_daemon.py`)
    - Purpose: Generates PNG visualizations from NetCDF files
-   - Dependencies: `pyart` modules, `config.py`, `sqlite_state_tracker.py`
+   - Dependencies: `pyart` modules, `config.py`, `sqlite_tracker.py`
    - Test Coverage: **38%** (improved from 11%)
    - Status: ✅ Adequate coverage, production-ready
 
-4. **DaemonManager** (`daemon_manager.py`)
+4. **DaemonManager** (`daemons/manager.py`)
    - Purpose: Manages lifecycle of all three daemons
    - Test Coverage: **44%**
    - Status: ✅ Functional with room for more tests
 
 ### 2. Supporting Infrastructure
 
-#### State Tracking
-- **SQLiteStateTracker** (`sqlite_state_tracker.py`)
+#### State Tracking (new module: `radarlib.state`)
+- **SQLiteStateTracker** (`state/sqlite_tracker.py`)
   - Coverage: **79%** (improved from 45%)
   - Status: ✅ Excellent coverage
   
-- **FileStateTracker** (`state_tracker.py`)
+- **FileStateTracker** (`state/file_tracker.py`)
   - Coverage: **97%**
-  - Status: ✅ Excellent coverage (legacy but well-maintained)
+  - Status: ✅ Excellent coverage
 
-#### FTP Clients
+#### FTP Clients (`radarlib.io.ftp`)
 - **RadarFTPClientAsync** (`ftp_client.py`)
   - Coverage: **17%**
-  - Status: ⚠️ Needs more tests (used by ContinuousDaemon)
+  - Status: ⚠️ Needs more tests (used by DownloadDaemon)
   
 - **FTPClient** (`client.py`)
   - Coverage: **84%**
