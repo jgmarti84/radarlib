@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from radarlib import config
-from radarlib.io.ftp import ProductGenerationDaemon, ProductGenerationDaemonConfig
+from radarlib.daemons import ProductGenerationDaemon, ProductGenerationDaemonConfig
 
 
 def example_basic_product_daemon():

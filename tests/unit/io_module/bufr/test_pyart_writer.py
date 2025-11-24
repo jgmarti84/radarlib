@@ -1,7 +1,12 @@
 import numpy as np
 import pandas as pd
+from importlib import import_module
 
-from radarlib.io.bufr import pyart_writer as pw
+# Import the module directly without going through __init__.py
+# This avoids the name collision between the module and the function
+bufr_to_pyart_module = import_module('radarlib.io.bufr.bufr_to_pyart')
+# Also test backward compatibility alias
+from radarlib.io.bufr import pyart_writer  # noqa: F401
 
 
 def make_field(filename: str, ngates: int, nrays: int, gate_offset: int, gate_size: int, elev: float):
@@ -22,7 +27,7 @@ def make_field(filename: str, ngates: int, nrays: int, gate_offset: int, gate_si
 def test_find_reference_field():
     f1 = make_field("R_1_DBZH_1.BUFR", 100, 10, 0, 100, 1.0)
     f2 = make_field("R_1_VRAD_1.BUFR", 150, 10, 0, 100, 1.0)
-    idx = pw._find_reference_field([f1, f2])
+    idx = bufr_to_pyart_module._find_reference_field([f1, f2])
     assert idx == 1
 
 
@@ -30,7 +35,7 @@ def test_align_field_to_reference():
     # reference 200 gates, field has offset 100 and 50 gates
     ref_ngates = 200
     field = make_field("R_1_DBZH_1.BUFR", 50, 5, 100, 100, 1.0)
-    aligned = pw._align_field_to_reference(field, ref_gate_offset=0, ref_gate_size=100, ref_ngates=ref_ngates)
+    aligned = bufr_to_pyart_module._align_field_to_reference(field, ref_gate_offset=0, ref_gate_size=100, ref_ngates=ref_ngates)
     assert aligned["data"].shape == (5, ref_ngates)
     # check that values were placed starting at gate 1 (index 1 because offset 100 / gate_size 100)
     assert aligned["data"][0, 1] == 5.0

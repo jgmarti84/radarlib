@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Example: Date-Based FTP Daemon for BUFR Files
+Example: Date-Based FTP Daemon for BUFR Files (Legacy)
 
 This example demonstrates how to use the DateBasedFTPDaemon for monitoring
 and downloading BUFR files based on date ranges with SQLite state tracking.
+
+Note: For new projects, consider using DownloadDaemon instead.
 """
 
 import asyncio
@@ -13,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from radarlib import config
-from radarlib.io.ftp import DateBasedDaemonConfig, DateBasedFTPDaemon
+from radarlib.daemons.legacy import DateBasedDaemonConfig, DateBasedFTPDaemon
 
 
 def example_ongoing_daemon_with_voltypes_filering():

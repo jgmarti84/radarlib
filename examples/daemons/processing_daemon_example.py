@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from radarlib import config
-from radarlib.io.ftp import ProcessingDaemon, ProcessingDaemonConfig
+from radarlib.daemons import ProcessingDaemon, ProcessingDaemonConfig
 
 
 def example_basic_processing_daemon():

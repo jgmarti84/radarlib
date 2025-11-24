@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Example: FTP Daemon Service for BUFR Files
+Example: FTP Daemon Service for BUFR Files (Legacy)
 
-This example demonstrates how to set up and run the FTP daemon service
+This example demonstrates how to set up and run the legacy FTP daemon service
 for continuously monitoring and downloading new BUFR files.
+
+Note: For new projects, consider using DownloadDaemon instead.
 """
 
 import asyncio
@@ -12,7 +14,7 @@ import signal
 from pathlib import Path
 
 from radarlib import config
-from radarlib.io.ftp import FTPDaemon, FTPDaemonConfig
+from radarlib.daemons.legacy import FTPDaemon, FTPDaemonConfig
 
 
 def main():

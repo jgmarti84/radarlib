@@ -3,7 +3,7 @@ Example: End-to-end GeoTIFF generation from RMA5 BUFR files with georeferencing.
 
 This example demonstrates:
 1. Decoding BUFR files with bufr_to_dict
-2. Creating PyART Radar objects with the legacy converter
+2. Creating PyART Radar objects with the BUFR to PyART converter
 3. Generating GeoTIFF files with geographic referencing
 4. Exporting to multiple formats (PNG + GeoTIFF + NetCDF) in one call
 """
@@ -11,8 +11,7 @@ This example demonstrates:
 import logging
 from pathlib import Path
 
-from radarlib.io.bufr.bufr import bufr_to_dict
-from radarlib.io.bufr.pyart_writer import bufr_to_pyart
+from radarlib.io.bufr import bufr_to_dict, bufr_to_pyart
 from radarlib.io.pyart.radar_png_plotter import export_fields_to_geotiff, export_fields_to_multi_format
 
 # Configure logging

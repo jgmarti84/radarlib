@@ -3,15 +3,14 @@ Example: End-to-end PNG generation from RMA5 BUFR files using legacy pipeline.
 
 This example demonstrates:
 1. Decoding BUFR files with bufr_to_dict
-2. Creating PyART Radar objects with the legacy converter
+2. Creating PyART Radar objects with the BUFR to PyART converter
 3. Generating PPI visualizations as PNG files
 """
 
 import logging
 from pathlib import Path
 
-from radarlib.io.bufr.bufr import bufr_to_dict
-from radarlib.io.bufr.pyart_writer import bufr_to_pyart
+from radarlib.io.bufr import bufr_to_dict, bufr_to_pyart
 from radarlib.io.pyart.radar_png_plotter import FieldPlotConfig, RadarPlotConfig, plot_and_save_ppi
 
 # Configure logging

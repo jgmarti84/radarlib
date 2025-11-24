@@ -1,10 +1,19 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+Example: Download Daemon
+
+This example demonstrates how to use the DownloadDaemon (formerly ContinuousDaemon)
+to monitor an FTP server and automatically download new BUFR files.
+"""
+
 import asyncio
 import datetime
 import os
 from pathlib import Path
 
 from radarlib import config
-from radarlib.io.ftp.continuous_daemon import ContinuousDaemon, ContinuousDaemonConfig
+from radarlib.daemons import DownloadDaemon, DownloadDaemonConfig
 
 if __name__ == "__main__":
     # Example configuration
@@ -13,7 +22,7 @@ if __name__ == "__main__":
     vol_types["0315"] = {"01": ["DBZH", "DBZV", "ZDR", "RHOHV", "PHIDP", "KDP"], "02": ["VRAD", "WRAD"]}
     vol_types["9202"] = {"01": ["DBZH", "DBZV", "ZDR", "RHOHV", "PHIDP", "KDP"], "02": ["VRAD", "WRAD"]}
 
-    dconfig = ContinuousDaemonConfig(
+    dconfig = DownloadDaemonConfig(
         host=config.FTP_HOST,
         username=config.FTP_USER,
         password=config.FTP_PASS,
@@ -26,7 +35,7 @@ if __name__ == "__main__":
         vol_types=vol_types,
     )
 
-    daemon = ContinuousDaemon(dconfig)
+    daemon = DownloadDaemon(dconfig)
 
     try:
         asyncio.run(daemon.run_service())

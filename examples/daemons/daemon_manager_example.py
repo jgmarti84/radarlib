@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from radarlib import config
-from radarlib.io.ftp.daemon_manager import DaemonManager, DaemonManagerConfig
+from radarlib.daemons import DaemonManager, DaemonManagerConfig
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
