@@ -1,5 +1,5 @@
 """
-Continuous Daemon for monitoring FTP server and downloading BUFR files.
+Download Daemon for monitoring FTP server and downloading BUFR files.
 
 This daemon continuously checks the FTP server for the latest minute/second folder
 and downloads new files, similar to the process_new_files pattern in FTPRadarDaemon.
@@ -15,21 +15,21 @@ from typing import Dict, Optional
 
 from radarlib.io.ftp.ftp import exponential_backoff_retry
 from radarlib.io.ftp.ftp_client import FTPError, RadarFTPClientAsync
-from radarlib.io.ftp.sqlite_state_tracker import SQLiteStateTracker
+from radarlib.state.sqlite_tracker import SQLiteStateTracker
 from radarlib.utils.names_utils import build_vol_types_regex, extract_bufr_filename_components
 
 logger = logging.getLogger(__name__)
 
 
-class ContinuousDaemonError(Exception):
-    """Base class for Continuous Daemon errors."""
+class DownloadDaemonError(Exception):
+    """Base class for Download Daemon errors."""
 
     pass
 
 
 @dataclass
-class ContinuousDaemonConfig:
-    """Configuration for ContinuousDaemon."""
+class DownloadDaemonConfig:
+    """Configuration for DownloadDaemon."""
 
     host: str
     username: str
@@ -55,7 +55,7 @@ class ContinuousDaemonConfig:
             self.start_date = now
 
 
-class ContinuousDaemon:
+class DownloadDaemon:
     """
     A daemon that continuously monitors the FTP server for new files.
 
@@ -63,15 +63,15 @@ class ContinuousDaemon:
     and logs it periodically.
     """
 
-    def __init__(self, daemon_config: ContinuousDaemonConfig):
+    def __init__(self, daemon_config: DownloadDaemonConfig):
         """
-        Initialize the ContinuousDaemon.
+        Initialize the DownloadDaemon.
 
         Args:
             daemon_config: Configuration for the daemon.
 
         Raises:
-            ContinuousDaemonError: If initialization fails.
+            DownloadDaemonError: If initialization fails.
         """
         self.config = daemon_config
         self.radar_name = daemon_config.radar_name
@@ -85,7 +85,7 @@ class ContinuousDaemon:
             logger.info("[%s] State tracker initialized with database: %s", self.radar_name, daemon_config.state_db)
         except Exception as e:
             logger.exception("[%s] Failed to initialize state tracker", self.radar_name)
-            raise ContinuousDaemonError(f"Failed to initialize state tracker: {e}") from e
+            raise DownloadDaemonError(f"Failed to initialize state tracker: {e}") from e
         self._stats = {
             "bufr_files_downloaded": 0,
             "bufr_files_failed": 0,
@@ -93,6 +93,7 @@ class ContinuousDaemon:
             "last_downloaded": None,
             "total_bytes": 0,
         }
+        self._running = False
 
     @property
     def vol_types(self):
@@ -262,3 +263,9 @@ class ContinuousDaemon:
             "bufr_files_downloaded": self._stats["bufr_files_downloaded"],
             "bufr_files_failed": self._stats["bufr_files_failed"],
         }
+
+
+# Backward compatibility aliases
+ContinuousDaemon = DownloadDaemon
+ContinuousDaemonConfig = DownloadDaemonConfig
+ContinuousDaemonError = DownloadDaemonError

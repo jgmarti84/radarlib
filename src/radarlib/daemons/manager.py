@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Simple daemon manager for FTP, Processing, and Product Generation daemons."""
+"""Daemon manager for Download, Processing, and Product Generation daemons."""
 
 import asyncio
 import logging
@@ -8,9 +8,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional
 
-from radarlib.io.ftp.continuous_daemon import ContinuousDaemon, ContinuousDaemonConfig
-from radarlib.io.ftp.processing_daemon import ProcessingDaemon, ProcessingDaemonConfig
-from radarlib.io.ftp.product_daemon import ProductGenerationDaemon, ProductGenerationDaemonConfig
+from radarlib.daemons.download_daemon import (  # noqa: F401
+    ContinuousDaemon,
+    ContinuousDaemonConfig,
+    DownloadDaemon,
+    DownloadDaemonConfig,
+)
+from radarlib.daemons.processing_daemon import ProcessingDaemon, ProcessingDaemonConfig
+from radarlib.daemons.product_daemon import ProductGenerationDaemon, ProductGenerationDaemonConfig
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +84,7 @@ class DaemonManager:
             config: Manager configuration
         """
         self.config = config
-        self.download_daemon: Optional[ContinuousDaemon] = None
+        self.download_daemon: Optional[DownloadDaemon] = None
         self.processing_daemon: Optional[ProcessingDaemon] = None
         self.product_daemon: Optional[ProductGenerationDaemon] = None
         self._tasks = []
@@ -96,9 +101,9 @@ class DaemonManager:
         self.netcdf_dir.mkdir(parents=True, exist_ok=True)
         self.product_dir.mkdir(parents=True, exist_ok=True)
 
-    def _create_download_daemon(self) -> ContinuousDaemon:
+    def _create_download_daemon(self) -> DownloadDaemon:
         """Create download daemon with current configuration."""
-        download_config = ContinuousDaemonConfig(
+        download_config = DownloadDaemonConfig(
             host=self.config.ftp_host,
             username=self.config.ftp_user,
             password=self.config.ftp_password,
@@ -111,7 +116,7 @@ class DaemonManager:
             poll_interval=self.config.download_poll_interval,
             vol_types=self.config.volume_types,
         )
-        return ContinuousDaemon(download_config)
+        return DownloadDaemon(download_config)
 
     def _create_processing_daemon(self) -> ProcessingDaemon:
         """Create processing daemon with current configuration."""
