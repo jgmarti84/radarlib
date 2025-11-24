@@ -103,6 +103,30 @@ class SQLiteStateTracker:
         )
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_volume_status ON volume_processing(status)")
 
+        # Product generation table for tracking generated products (PNG, GeoTIFF, etc.)
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS product_generation (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                volume_id TEXT NOT NULL,
+                product_type TEXT NOT NULL,
+                status TEXT DEFAULT 'pending',
+                generated_at TEXT,
+                error_message TEXT,
+                error_type TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(volume_id, product_type),
+                FOREIGN KEY (volume_id) REFERENCES volume_processing(volume_id)
+            )
+        """
+        )
+
+        # Index for faster queries on product generation
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_product_volume_id ON product_generation(volume_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_product_status ON product_generation(status)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_product_type ON product_generation(product_type)")
+
         conn.commit()
         logger.info(f"Initialized SQLite database at {self.db_path}")
 
@@ -762,5 +786,226 @@ class SQLiteStateTracker:
         num_reset = cursor.rowcount
         if num_reset > 0:
             logger.info(f"Reset {num_reset} stuck volumes from 'processing' back to 'pending'")
+
+        return num_reset
+
+    # ==================================================================================
+    # Product Generation Methods
+    # ==================================================================================
+
+    def register_product_generation(self, volume_id: str, product_type: str = "image") -> None:
+        """
+        Register a product generation task for a volume.
+
+        Args:
+            volume_id: Volume identifier
+            product_type: Type of product ('image' for PNG/visualization, 'geotiff', etc.)
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        now = datetime.now(timezone.utc).isoformat()
+
+        try:
+            cursor.execute(
+                """
+                INSERT INTO product_generation (volume_id, product_type, status, created_at, updated_at)
+                VALUES (?, ?, 'pending', ?, ?)
+            """,
+                (volume_id, product_type, now, now),
+            )
+            conn.commit()
+            logger.debug(f"Registered {product_type} generation for volume {volume_id}")
+        except sqlite3.IntegrityError:
+            # Already exists, skip
+            logger.debug(f"Product generation already registered for {volume_id}/{product_type}")
+
+    def mark_product_status(
+        self,
+        volume_id: str,
+        product_type: str,
+        status: str,
+        error_message: Optional[str] = None,
+        error_type: Optional[str] = None,
+    ) -> None:
+        """
+        Mark product generation status for a volume.
+
+        Args:
+            volume_id: Volume identifier
+            product_type: Type of product ('image', 'geotiff', etc.)
+            status: Generation status ('pending', 'processing', 'completed', 'failed')
+            error_message: Optional detailed error message if failed
+            error_type: Optional short error type for categorization
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        now = datetime.now(timezone.utc).isoformat()
+
+        if status == "completed":
+            cursor.execute(
+                """
+                UPDATE product_generation
+                SET status = ?, generated_at = ?, error_message = NULL, error_type = NULL, updated_at = ?
+                WHERE volume_id = ? AND product_type = ?
+            """,
+                (status, now, now, volume_id, product_type),
+            )
+        elif status == "failed":
+            cursor.execute(
+                """
+                UPDATE product_generation
+                SET status = ?, error_message = ?, error_type = ?, updated_at = ?
+                WHERE volume_id = ? AND product_type = ?
+            """,
+                (status, error_message, error_type, now, volume_id, product_type),
+            )
+        else:
+            cursor.execute(
+                """
+                UPDATE product_generation
+                SET status = ?, updated_at = ?
+                WHERE volume_id = ? AND product_type = ?
+            """,
+                (status, now, volume_id, product_type),
+            )
+
+        conn.commit()
+        logger.debug(f"Marked {product_type} for {volume_id} with status: {status}")
+
+    def get_volumes_for_product_generation(self, product_type: str = "image") -> List[Dict]:
+        """
+        Get volumes that are ready for product generation.
+
+        Returns volumes that:
+        - Have status='completed' in volume_processing (NetCDF file generated)
+        - Don't have a product_generation entry OR have status='pending' or 'failed'
+
+        Args:
+            product_type: Type of product to check ('image', 'geotiff', etc.)
+
+        Returns:
+            List of dictionaries with volume and product generation info
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT
+                vp.*,
+                pg.status as product_status,
+                pg.error_message as product_error_message,
+                pg.error_type as product_error_type
+            FROM volume_processing vp
+            LEFT JOIN product_generation pg
+                ON vp.volume_id = pg.volume_id AND pg.product_type = ?
+            WHERE vp.status = 'completed'
+              AND (pg.status IS NULL OR pg.status = 'pending' OR pg.status = 'failed')
+            ORDER BY vp.observation_datetime ASC
+        """,
+            (product_type,),
+        )
+
+        return [dict(row) for row in cursor.fetchall()]
+
+    def get_products_by_status(self, status: str, product_type: Optional[str] = None) -> List[Dict]:
+        """
+        Get all products with a specific status.
+
+        Args:
+            status: Status to filter by ('pending', 'processing', 'completed', 'failed')
+            product_type: Optional product type filter ('image', 'geotiff', etc.)
+
+        Returns:
+            List of dictionaries with product generation info
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        if product_type:
+            cursor.execute(
+                """
+                SELECT pg.*, vp.radar_name, vp.observation_datetime, vp.netcdf_path
+                FROM product_generation pg
+                JOIN volume_processing vp ON pg.volume_id = vp.volume_id
+                WHERE pg.status = ? AND pg.product_type = ?
+                ORDER BY pg.updated_at DESC
+            """,
+                (status, product_type),
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT pg.*, vp.radar_name, vp.observation_datetime, vp.netcdf_path
+                FROM product_generation pg
+                JOIN volume_processing vp ON pg.volume_id = vp.volume_id
+                WHERE pg.status = ?
+                ORDER BY pg.updated_at DESC
+            """,
+                (status,),
+            )
+
+        return [dict(row) for row in cursor.fetchall()]
+
+    def get_stuck_product_generations(self, timeout_minutes: int, product_type: str = "image") -> List[Dict]:
+        """
+        Get product generations stuck in 'processing' state.
+
+        Args:
+            timeout_minutes: Timeout in minutes
+            product_type: Type of product to check
+
+        Returns:
+            List of stuck product generation dictionaries
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        now = datetime.now(timezone.utc)
+        cutoff_time = now - timedelta(minutes=timeout_minutes)
+        cutoff_iso = cutoff_time.isoformat()
+
+        cursor.execute(
+            """
+            SELECT * FROM product_generation
+            WHERE status = 'processing' AND product_type = ? AND updated_at < ?
+            ORDER BY updated_at ASC
+        """,
+            (product_type, cutoff_iso),
+        )
+
+        return [dict(row) for row in cursor.fetchall()]
+
+    def reset_stuck_product_generations(self, timeout_minutes: int, product_type: str = "image") -> int:
+        """
+        Reset product generations that have been stuck in 'processing' status back to 'pending'.
+
+        Args:
+            timeout_minutes: Timeout in minutes
+            product_type: Type of product to check
+
+        Returns:
+            Number of product generations that were reset
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        now = datetime.now(timezone.utc).isoformat()
+
+        cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=timeout_minutes)
+        cutoff_iso = cutoff_time.isoformat()
+
+        cursor.execute(
+            """
+            UPDATE product_generation
+            SET status = 'pending', updated_at = ?
+            WHERE status = 'processing' AND product_type = ? AND updated_at < ?
+        """,
+            (now, product_type, cutoff_iso),
+        )
+
+        conn.commit()
+        num_reset = cursor.rowcount
+        if num_reset > 0:
+            logger.info(f"Reset {num_reset} stuck {product_type} generations from 'processing' back to 'pending'")
 
         return num_reset

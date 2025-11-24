@@ -20,6 +20,7 @@ from .ftp import (
     parse_ftp_path,
 )
 from .processing_daemon import ProcessingDaemon, ProcessingDaemonConfig
+from .product_daemon import ProductGenerationDaemon, ProductGenerationDaemonConfig
 from .sqlite_state_tracker import SQLiteStateTracker
 from .state_tracker import FileStateTracker
 
@@ -34,6 +35,8 @@ __all__ = [
     # "DateBasedDaemonConfig",
     "ProcessingDaemon",
     "ProcessingDaemonConfig",
+    "ProductGenerationDaemon",
+    "ProductGenerationDaemonConfig",
     # "DaemonManager",
     # "DaemonManagerConfig",
     "FileStateTracker",
