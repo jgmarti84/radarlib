@@ -90,10 +90,7 @@ class SQLiteStateTracker:
                 expected_fields TEXT,
                 downloaded_fields TEXT,
                 created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
-                png_status TEXT DEFAULT 'pending',
-                png_generated_at TEXT,
-                png_error_message TEXT
+                updated_at TEXT NOT NULL
             )
         """
         )
@@ -105,7 +102,6 @@ class SQLiteStateTracker:
             "volume_processing(radar_name, observation_datetime)"
         )
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_volume_status ON volume_processing(status)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_volume_png_status ON volume_processing(png_status)")
         
         # Migrate existing tables to add png columns if they don't exist
         try:
