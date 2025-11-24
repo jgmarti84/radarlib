@@ -57,7 +57,7 @@ The `ProductGenerationDaemon` class monitors processed NetCDF files and generate
    - Register in product_generation table
    - Mark as "processing"
    - Read NetCDF file (error tracked as "Reading volume")
-   - Standardize fields (error tracked as "Standardizing fields")  
+   - Standardize fields (error tracked as "Standardizing fields")
    - Generate COLMAX field if enabled
    - Generate PNG plots for all fields
    - Mark as "completed" or "failed" with error_type
@@ -167,7 +167,7 @@ async def run_pipeline():
     download_daemon = ContinuousDaemon(download_config)
     processing_daemon = ProcessingDaemon(processing_config)
     product_daemon = ProductGenerationDaemon(product_config)
-    
+
     await asyncio.gather(
         download_daemon.run_service(),
         processing_daemon.run(),

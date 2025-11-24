@@ -123,15 +123,9 @@ class SQLiteStateTracker:
         )
 
         # Index for faster queries on product generation
-        cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_product_volume_id ON product_generation(volume_id)"
-        )
-        cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_product_status ON product_generation(status)"
-        )
-        cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_product_type ON product_generation(product_type)"
-        )
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_product_volume_id ON product_generation(volume_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_product_status ON product_generation(status)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_product_type ON product_generation(product_type)")
 
         conn.commit()
         logger.info(f"Initialized SQLite database at {self.db_path}")
@@ -799,9 +793,7 @@ class SQLiteStateTracker:
     # Product Generation Methods
     # ==================================================================================
 
-    def register_product_generation(
-        self, volume_id: str, product_type: str = "image"
-    ) -> None:
+    def register_product_generation(self, volume_id: str, product_type: str = "image") -> None:
         """
         Register a product generation task for a volume.
 
@@ -899,13 +891,13 @@ class SQLiteStateTracker:
 
         cursor.execute(
             """
-            SELECT 
+            SELECT
                 vp.*,
                 pg.status as product_status,
                 pg.error_message as product_error_message,
                 pg.error_type as product_error_type
             FROM volume_processing vp
-            LEFT JOIN product_generation pg 
+            LEFT JOIN product_generation pg
                 ON vp.volume_id = pg.volume_id AND pg.product_type = ?
             WHERE vp.status = 'completed'
               AND (pg.status IS NULL OR pg.status = 'pending' OR pg.status = 'failed')
@@ -1014,8 +1006,6 @@ class SQLiteStateTracker:
         conn.commit()
         num_reset = cursor.rowcount
         if num_reset > 0:
-            logger.info(
-                f"Reset {num_reset} stuck {product_type} generations from 'processing' back to 'pending'"
-            )
+            logger.info(f"Reset {num_reset} stuck {product_type} generations from 'processing' back to 'pending'")
 
         return num_reset

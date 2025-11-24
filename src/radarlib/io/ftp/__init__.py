@@ -19,8 +19,8 @@ from .ftp import (
     list_files_in_remote_dir,
     parse_ftp_path,
 )
-from .product_daemon import ProductGenerationDaemon, ProductGenerationDaemonConfig
 from .processing_daemon import ProcessingDaemon, ProcessingDaemonConfig
+from .product_daemon import ProductGenerationDaemon, ProductGenerationDaemonConfig
 from .sqlite_state_tracker import SQLiteStateTracker
 from .state_tracker import FileStateTracker
 
