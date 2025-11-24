@@ -90,7 +90,10 @@ class SQLiteStateTracker:
                 expected_fields TEXT,
                 downloaded_fields TEXT,
                 created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                updated_at TEXT NOT NULL,
+                png_status TEXT DEFAULT 'pending',
+                png_generated_at TEXT,
+                png_error_message TEXT
             )
         """
         )
@@ -102,6 +105,17 @@ class SQLiteStateTracker:
             "volume_processing(radar_name, observation_datetime)"
         )
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_volume_status ON volume_processing(status)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_volume_png_status ON volume_processing(png_status)")
+        
+        # Migrate existing tables to add png columns if they don't exist
+        try:
+            cursor.execute("SELECT png_status FROM volume_processing LIMIT 1")
+        except sqlite3.OperationalError:
+            logger.info("Adding png_status columns to existing volume_processing table")
+            cursor.execute("ALTER TABLE volume_processing ADD COLUMN png_status TEXT DEFAULT 'pending'")
+            cursor.execute("ALTER TABLE volume_processing ADD COLUMN png_generated_at TEXT")
+            cursor.execute("ALTER TABLE volume_processing ADD COLUMN png_error_message TEXT")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_volume_png_status ON volume_processing(png_status)")
 
         conn.commit()
         logger.info(f"Initialized SQLite database at {self.db_path}")
@@ -762,5 +776,161 @@ class SQLiteStateTracker:
         num_reset = cursor.rowcount
         if num_reset > 0:
             logger.info(f"Reset {num_reset} stuck volumes from 'processing' back to 'pending'")
+
+        return num_reset
+
+    def mark_volume_png_status(
+        self, volume_id: str, png_status: str, error_message: Optional[str] = None
+    ) -> None:
+        """
+        Mark PNG generation status for a volume.
+
+        Args:
+            volume_id: Volume identifier
+            png_status: PNG generation status ('pending', 'processing', 'completed', 'failed')
+            error_message: Optional error message if failed
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        now = datetime.now(timezone.utc).isoformat()
+
+        if png_status == "completed":
+            cursor.execute(
+                """
+                UPDATE volume_processing
+                SET png_status = ?, png_generated_at = ?, png_error_message = NULL, updated_at = ?
+                WHERE volume_id = ?
+            """,
+                (png_status, now, now, volume_id),
+            )
+        elif png_status == "failed":
+            cursor.execute(
+                """
+                UPDATE volume_processing
+                SET png_status = ?, png_error_message = ?, updated_at = ?
+                WHERE volume_id = ?
+            """,
+                (png_status, error_message, now, volume_id),
+            )
+        else:
+            cursor.execute(
+                """
+                UPDATE volume_processing
+                SET png_status = ?, updated_at = ?
+                WHERE volume_id = ?
+            """,
+                (png_status, now, volume_id),
+            )
+
+        conn.commit()
+        logger.debug(f"Marked volume {volume_id} with PNG status: {png_status}")
+
+    def get_volumes_for_png_generation(self) -> List[Dict]:
+        """
+        Get volumes that are ready for PNG generation.
+
+        Returns volumes that:
+        - Have status='completed' (NetCDF file generated)
+        - Have png_status='pending' or 'failed' (not yet PNG-processed or failed before)
+
+        Returns:
+            List of volume dictionaries
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT * FROM volume_processing
+            WHERE status = 'completed'
+              AND (png_status = 'pending' OR png_status = 'failed')
+            ORDER BY observation_datetime ASC
+        """
+        )
+
+        return [dict(row) for row in cursor.fetchall()]
+
+    def get_volumes_by_png_status(self, png_status: str) -> List[Dict]:
+        """
+        Get all volumes with a specific PNG generation status.
+
+        Args:
+            png_status: PNG status to filter by ('pending', 'processing', 'completed', 'failed')
+
+        Returns:
+            List of volume dictionaries
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT * FROM volume_processing
+            WHERE png_status = ?
+            ORDER BY observation_datetime DESC
+        """,
+            (png_status,),
+        )
+
+        return [dict(row) for row in cursor.fetchall()]
+
+    def get_stuck_png_volumes(self, timeout_minutes: int) -> List[Dict]:
+        """
+        Get volumes stuck in 'processing' state for PNG generation.
+
+        Args:
+            timeout_minutes: Timeout in minutes
+
+        Returns:
+            List of volume dictionaries stuck in processing
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        now = datetime.now(timezone.utc)
+        cutoff_time = now - timedelta(minutes=timeout_minutes)
+        cutoff_iso = cutoff_time.isoformat()
+
+        cursor.execute(
+            """
+            SELECT * FROM volume_processing
+            WHERE png_status = 'processing' AND updated_at < ?
+            ORDER BY updated_at ASC
+        """,
+            (cutoff_iso,),
+        )
+
+        return [dict(row) for row in cursor.fetchall()]
+
+    def reset_stuck_png_volumes(self, timeout_minutes: int) -> int:
+        """
+        Reset volumes that have been stuck in 'processing' PNG status back to 'pending'.
+
+        Args:
+            timeout_minutes: Timeout in minutes
+
+        Returns:
+            Number of volumes that were reset
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        now = datetime.now(timezone.utc).isoformat()
+
+        cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=timeout_minutes)
+        cutoff_iso = cutoff_time.isoformat()
+
+        cursor.execute(
+            """
+            UPDATE volume_processing
+            SET png_status = 'pending', updated_at = ?
+            WHERE png_status = 'processing' AND updated_at < ?
+        """,
+            (now, cutoff_iso),
+        )
+
+        conn.commit()
+        num_reset = cursor.rowcount
+        if num_reset > 0:
+            logger.info(f"Reset {num_reset} stuck PNG volumes from 'processing' back to 'pending'")
 
         return num_reset

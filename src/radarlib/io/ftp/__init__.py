@@ -19,6 +19,7 @@ from .ftp import (
     list_files_in_remote_dir,
     parse_ftp_path,
 )
+from .png_daemon import PNGGenerationDaemon, PNGGenerationDaemonConfig
 from .processing_daemon import ProcessingDaemon, ProcessingDaemonConfig
 from .sqlite_state_tracker import SQLiteStateTracker
 from .state_tracker import FileStateTracker
@@ -34,6 +35,8 @@ __all__ = [
     # "DateBasedDaemonConfig",
     "ProcessingDaemon",
     "ProcessingDaemonConfig",
+    "PNGGenerationDaemon",
+    "PNGGenerationDaemonConfig",
     # "DaemonManager",
     # "DaemonManagerConfig",
     "FileStateTracker",

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Simple daemon manager for FTP and Processing daemons."""
+"""Simple daemon manager for FTP, Processing, and PNG Generation daemons."""
 
 import asyncio
 import logging
@@ -8,7 +8,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional
 
-from radarlib.io.ftp import ContinuousDaemon, ContinuousDaemonConfig, ProcessingDaemon, ProcessingDaemonConfig
+from radarlib.io.ftp import (
+    ContinuousDaemon,
+    ContinuousDaemonConfig,
+    PNGGenerationDaemon,
+    PNGGenerationDaemonConfig,
+    ProcessingDaemon,
+    ProcessingDaemonConfig,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +36,11 @@ class DaemonManagerConfig:
         start_date: Start date for downloads (UTC)
         download_poll_interval: Seconds between download checks
         processing_poll_interval: Seconds between processing checks
+        png_poll_interval: Seconds between PNG generation checks
         enable_download_daemon: Whether to start download daemon
         enable_processing_daemon: Whether to start processing daemon
+        enable_png_daemon: Whether to start PNG generation daemon
+        add_colmax: Whether to generate COLMAX field in PNG daemon
     """
 
     radar_name: str
@@ -44,15 +54,18 @@ class DaemonManagerConfig:
     # end_date: Optional[datetime] = None
     download_poll_interval: int = 60
     processing_poll_interval: int = 30
+    png_poll_interval: int = 30
     enable_download_daemon: bool = True
     enable_processing_daemon: bool = True
+    enable_png_daemon: bool = True
+    add_colmax: bool = True
 
 
 class DaemonManager:
     """
-    Simple manager for FTP download and BUFR processing daemons.
+    Simple manager for FTP download, BUFR processing, and PNG generation daemons.
 
-    Provides easy start/stop control and configuration management for both daemons.
+    Provides easy start/stop control and configuration management for all daemons.
 
     Example:
         >>> manager = DaemonManager(config)
@@ -71,17 +84,20 @@ class DaemonManager:
         self.config = config
         self.download_daemon: Optional[ContinuousDaemon] = None
         self.processing_daemon: Optional[ProcessingDaemon] = None
+        self.png_daemon: Optional[PNGGenerationDaemon] = None
         self._tasks = []
         self._running = False
 
         # Setup paths
         self.bufr_dir = config.base_path / "bufr"
         self.netcdf_dir = config.base_path / "netcdf"
+        self.png_dir = config.base_path / "png"
         self.state_db = config.base_path / "state.db"
 
         # Ensure directories exist
         self.bufr_dir.mkdir(parents=True, exist_ok=True)
         self.netcdf_dir.mkdir(parents=True, exist_ok=True)
+        self.png_dir.mkdir(parents=True, exist_ok=True)
 
     def _create_download_daemon(self) -> ContinuousDaemon:
         """Create download daemon with current configuration."""
@@ -113,11 +129,24 @@ class DaemonManager:
         )
         return ProcessingDaemon(processing_config)
 
+    def _create_png_daemon(self) -> PNGGenerationDaemon:
+        """Create PNG generation daemon with current configuration."""
+        png_config = PNGGenerationDaemonConfig(
+            local_netcdf_dir=self.netcdf_dir,
+            local_png_dir=self.png_dir,
+            state_db=self.state_db,
+            volume_types=self.config.volume_types,
+            radar_name=self.config.radar_name,
+            poll_interval=self.config.png_poll_interval,
+            add_colmax=self.config.add_colmax,
+        )
+        return PNGGenerationDaemon(png_config)
+
     async def start(self) -> None:
         """
         Start enabled daemons.
 
-        Starts the download and/or processing daemons based on configuration.
+        Starts the download, processing, and/or PNG generation daemons based on configuration.
         Runs until stopped or cancelled.
         """
         if self._running:
@@ -142,6 +171,13 @@ class DaemonManager:
             task = asyncio.create_task(self.processing_daemon.run())
             self._tasks.append(("processing", task))
             logger.info("Started processing daemon")
+
+        # Create and start PNG generation daemon
+        if self.config.enable_png_daemon:
+            self.png_daemon = self._create_png_daemon()
+            task = asyncio.create_task(self.png_daemon.run())
+            self._tasks.append(("png", task))
+            logger.info("Started PNG generation daemon")
 
         if not self._tasks:
             logger.warning("No daemons enabled in configuration")
@@ -170,6 +206,10 @@ class DaemonManager:
         if self.processing_daemon:
             self.processing_daemon.stop()
             logger.info("Stopped processing daemon")
+
+        if self.png_daemon:
+            self.png_daemon.stop()
+            logger.info("Stopped PNG generation daemon")
 
         # Cancel any running tasks
         for name, task in self._tasks:
@@ -251,6 +291,42 @@ class DaemonManager:
         self._tasks.append(("processing", task))
         logger.info("Processing daemon restarted")
 
+    async def restart_png_daemon(self, new_config: Optional[Dict] = None) -> None:
+        """
+        Restart PNG generation daemon with optional new configuration.
+
+        Args:
+            new_config: Optional dict with config parameters to update
+        """
+        logger.info("Restarting PNG generation daemon")
+
+        # Stop existing PNG daemon
+        if self.png_daemon:
+            self.png_daemon.stop()
+            # Find and cancel its task
+            for i, (name, task) in enumerate(self._tasks):
+                if name == "png" and not task.done():
+                    task.cancel()
+                    try:
+                        await task
+                    except asyncio.CancelledError:
+                        pass
+                    self._tasks.pop(i)
+                    break
+
+        # Apply new configuration if provided
+        if new_config:
+            for key, value in new_config.items():
+                if hasattr(self.config, key):
+                    setattr(self.config, key, value)
+                    logger.debug(f"Updated config: {key} = {value}")
+
+        # Create and start new PNG daemon
+        self.png_daemon = self._create_png_daemon()
+        task = asyncio.create_task(self.png_daemon.run())
+        self._tasks.append(("png", task))
+        logger.info("PNG generation daemon restarted")
+
     def get_status(self) -> Dict:
         """
         Get status of all daemons.
@@ -271,6 +347,11 @@ class DaemonManager:
                 "enabled": self.config.enable_processing_daemon,
                 "running": self.processing_daemon is not None and self.processing_daemon._running,
                 "stats": self.processing_daemon.get_stats() if self.processing_daemon else None,
+            },
+            "png_daemon": {
+                "enabled": self.config.enable_png_daemon,
+                "running": self.png_daemon is not None and self.png_daemon._running,
+                "stats": self.png_daemon.get_stats() if self.png_daemon else None,
             },
         }
         return status
