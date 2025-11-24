@@ -127,6 +127,8 @@ def bufr_fields_to_pyart_radar(
     range_data = gate_offset + gate_size * np.arange(radar.ngates)
     radar.range = radar.range  # keep existing structure
     radar.range["data"] = range_data
+    radar.range["meters_between_gates"] = gate_size
+    radar.range["meters_to_center_of_first_gate"] = gate_offset
 
     # elevation/azimuth/fixed_angle
     rays_per_sweep = ref_field["info"]["sweeps"]["nrayos"].to_numpy()
