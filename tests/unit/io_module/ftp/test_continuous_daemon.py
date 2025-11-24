@@ -3,8 +3,7 @@
 
 import asyncio
 from datetime import datetime, timezone
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -208,9 +207,7 @@ class TestContinuousDaemon:
             mock_client = AsyncMock()
             mock_client.traverse_radar.return_value = []
 
-            with patch(
-                "radarlib.io.ftp.continuous_daemon.RadarFTPClientAsync"
-            ) as mock_client_class:
+            with patch("radarlib.io.ftp.continuous_daemon.RadarFTPClientAsync") as mock_client_class:
                 mock_client_class.return_value.__aenter__.return_value = mock_client
 
                 # Run one iteration then stop
@@ -243,9 +240,7 @@ class TestContinuousDaemon:
             mock_client = AsyncMock()
             mock_client.traverse_radar.return_value = []
 
-            with patch(
-                "radarlib.io.ftp.continuous_daemon.RadarFTPClientAsync"
-            ) as mock_client_class:
+            with patch("radarlib.io.ftp.continuous_daemon.RadarFTPClientAsync") as mock_client_class:
                 mock_client_class.return_value.__aenter__.return_value = mock_client
 
                 # Run one iteration

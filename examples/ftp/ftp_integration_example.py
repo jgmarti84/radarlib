@@ -14,8 +14,8 @@ import asyncio
 from pathlib import Path
 
 from radarlib import config
-from radarlib.io.ftp import FTPClient
 from radarlib.daemons.legacy import FTPDaemon, FTPDaemonConfig
+from radarlib.io.ftp import FTPClient
 from radarlib.state import FileStateTracker
 
 

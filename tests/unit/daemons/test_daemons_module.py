@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 """Tests for the daemons module using the new organization."""
 
+from unittest.mock import patch
+
 import pytest
-from datetime import datetime, timezone
-from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 
 class TestDaemonsImport:
@@ -13,6 +12,7 @@ class TestDaemonsImport:
     def test_import_download_daemon(self):
         """Test importing DownloadDaemon from new location."""
         from radarlib.daemons import DownloadDaemon, DownloadDaemonConfig, DownloadDaemonError
+
         assert DownloadDaemon is not None
         assert DownloadDaemonConfig is not None
         assert DownloadDaemonError is not None
@@ -20,18 +20,21 @@ class TestDaemonsImport:
     def test_import_processing_daemon(self):
         """Test importing ProcessingDaemon from new location."""
         from radarlib.daemons import ProcessingDaemon, ProcessingDaemonConfig
+
         assert ProcessingDaemon is not None
         assert ProcessingDaemonConfig is not None
 
     def test_import_product_daemon(self):
         """Test importing ProductGenerationDaemon from new location."""
         from radarlib.daemons import ProductGenerationDaemon, ProductGenerationDaemonConfig
+
         assert ProductGenerationDaemon is not None
         assert ProductGenerationDaemonConfig is not None
 
     def test_import_daemon_manager(self):
         """Test importing DaemonManager from new location."""
         from radarlib.daemons import DaemonManager, DaemonManagerConfig
+
         assert DaemonManager is not None
         assert DaemonManagerConfig is not None
 
@@ -45,6 +48,7 @@ class TestDaemonsImport:
             DownloadDaemonConfig,
             DownloadDaemonError,
         )
+
         # New and old names should be the same class
         assert ContinuousDaemon is DownloadDaemon
         assert ContinuousDaemonConfig is DownloadDaemonConfig
@@ -52,8 +56,8 @@ class TestDaemonsImport:
 
     def test_legacy_daemons_import(self):
         """Test importing legacy daemons."""
-        from radarlib.daemons import FTPDaemon, FTPDaemonConfig
-        from radarlib.daemons import DateBasedFTPDaemon, DateBasedDaemonConfig
+        from radarlib.daemons import DateBasedDaemonConfig, DateBasedFTPDaemon, FTPDaemon, FTPDaemonConfig
+
         assert FTPDaemon is not None
         assert FTPDaemonConfig is not None
         assert DateBasedFTPDaemon is not None
@@ -74,7 +78,7 @@ class TestDownloadDaemon:
     def test_download_daemon_config(self, temp_dirs):
         """Test DownloadDaemonConfig creation."""
         from radarlib.daemons import DownloadDaemonConfig
-        
+
         bufr_dir, state_db = temp_dirs
         config = DownloadDaemonConfig(
             host="ftp.example.com",
@@ -93,7 +97,7 @@ class TestDownloadDaemon:
     def test_download_daemon_init(self, temp_dirs):
         """Test DownloadDaemon initialization."""
         from radarlib.daemons import DownloadDaemon, DownloadDaemonConfig
-        
+
         bufr_dir, state_db = temp_dirs
         config = DownloadDaemonConfig(
             host="ftp.example.com",

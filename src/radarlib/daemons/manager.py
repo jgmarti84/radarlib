@@ -8,12 +8,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional
 
-from radarlib.daemons.download_daemon import (
-    DownloadDaemon,
-    DownloadDaemonConfig,
-    # Backward compatibility
+from radarlib.daemons.download_daemon import (  # noqa: F401
     ContinuousDaemon,
     ContinuousDaemonConfig,
+    DownloadDaemon,
+    DownloadDaemonConfig,
 )
 from radarlib.daemons.processing_daemon import ProcessingDaemon, ProcessingDaemonConfig
 from radarlib.daemons.product_daemon import ProductGenerationDaemon, ProductGenerationDaemonConfig

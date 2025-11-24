@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 """Tests for ProductGenerationDaemon."""
 
-import asyncio
-from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -105,7 +103,7 @@ class TestProductGenerationDaemon:
     def test_init_creates_state_tracker(self, daemon_config):
         """Test that initialization creates state tracker."""
         with patch("radarlib.io.ftp.product_daemon.SQLiteStateTracker") as mock_tracker:
-            daemon = ProductGenerationDaemon(daemon_config)
+            _daemon = ProductGenerationDaemon(daemon_config)  # noqa: F841
 
             mock_tracker.assert_called_once_with(daemon_config.state_db)
 
@@ -268,9 +266,7 @@ class TestProductGenerationDaemon:
             }
 
             # Mock the sync generation method to raise an exception
-            with patch.object(
-                daemon, "_generate_products_sync", side_effect=RuntimeError("Plot error")
-            ):
+            with patch.object(daemon, "_generate_products_sync", side_effect=RuntimeError("Plot error")):
                 result = await daemon._generate_product_async(volume_info)
 
                 assert result is False

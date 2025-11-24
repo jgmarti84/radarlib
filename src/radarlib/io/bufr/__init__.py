@@ -7,12 +7,11 @@ This module provides:
 - `bufr_fields_to_pyart_radar`: Create PyART radar from BUFR field data
 """
 
-# New module name
-from radarlib.io.bufr.bufr_to_pyart import bufr_fields_to_pyart_radar, bufr_to_pyart
-
 # Backward compatibility - also import from old module name
 from radarlib.io.bufr import pyart_writer  # noqa: F401
-
 from radarlib.io.bufr.bufr import bufr_to_dict
+
+# New module name
+from radarlib.io.bufr.bufr_to_pyart import bufr_fields_to_pyart_radar, bufr_to_pyart
 
 __all__ = ["bufr_to_dict", "bufr_to_pyart", "bufr_fields_to_pyart_radar"]

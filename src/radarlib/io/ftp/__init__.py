@@ -2,7 +2,7 @@
 FTP module for interacting with FTP servers.
 
 This module provides FTP client functionality for connecting to and downloading
-files from FTP servers. 
+files from FTP servers.
 
 Note: This module also re-exports daemon and state tracker classes for backward
       compatibility. For new code, import from their primary locations:
@@ -11,6 +11,13 @@ Note: This module also re-exports daemon and state tracker classes for backward
 """
 
 from .client import FTPClient
+
+# Keep old files for backward compatibility during transition
+# These will be imported from their original locations
+from .continuous_daemon import ContinuousDaemon, ContinuousDaemonConfig
+from .daemon import FTPDaemon, FTPDaemonConfig
+from .daemon_manager import DaemonManager, DaemonManagerConfig
+from .date_daemon import DateBasedDaemonConfig, DateBasedFTPDaemon
 from .ftp import (
     FTP_IsADirectoryError,
     FTPActionError,
@@ -24,13 +31,6 @@ from .ftp import (
     parse_ftp_path,
 )
 from .ftp_client import FTPError, RadarFTPClientAsync
-
-# Keep old files for backward compatibility during transition
-# These will be imported from their original locations
-from .continuous_daemon import ContinuousDaemon, ContinuousDaemonConfig
-from .daemon import FTPDaemon, FTPDaemonConfig
-from .daemon_manager import DaemonManager, DaemonManagerConfig
-from .date_daemon import DateBasedDaemonConfig, DateBasedFTPDaemon
 from .processing_daemon import ProcessingDaemon, ProcessingDaemonConfig
 from .product_daemon import ProductGenerationDaemon, ProductGenerationDaemonConfig
 from .sqlite_state_tracker import SQLiteStateTracker
@@ -71,4 +71,3 @@ __all__ = [
     "FTPActionError",
     "FTP_IsADirectoryError",
 ]
-

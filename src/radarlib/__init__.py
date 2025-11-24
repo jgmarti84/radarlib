@@ -4,10 +4,9 @@ import os
 
 from pyart.config import load_config
 
+# Import config for easier access
 # Import colormaps module to automatically register custom colormaps
 from radarlib import colormaps  # noqa: F401
-
-# Import config for easier access
 from radarlib import config  # noqa: F401
 
 # Note: daemons and state modules are available but not imported at startup
@@ -27,4 +26,3 @@ if "PYART_QUIET" not in os.environ:
 _dirname = os.path.dirname(__file__)
 global_parameters = os.path.join(_dirname, "pyart_defaults.py")
 load_config(filename=global_parameters)
-

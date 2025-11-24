@@ -1,9 +1,6 @@
 # -*- coding: utf-8 -*-
 """Tests for the state module."""
 
-import pytest
-from datetime import datetime, timedelta, timezone
-
 
 class TestStateImport:
     """Test that state tracking classes can be imported from the new location."""
@@ -11,11 +8,13 @@ class TestStateImport:
     def test_import_sqlite_tracker(self):
         """Test importing SQLiteStateTracker from new location."""
         from radarlib.state import SQLiteStateTracker
+
         assert SQLiteStateTracker is not None
 
     def test_import_file_tracker(self):
         """Test importing FileStateTracker from new location."""
         from radarlib.state import FileStateTracker
+
         assert FileStateTracker is not None
 
 

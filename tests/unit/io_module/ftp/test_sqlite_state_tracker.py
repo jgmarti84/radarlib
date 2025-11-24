@@ -225,12 +225,8 @@ class TestSQLiteStateTracker:
         tracker = SQLiteStateTracker(db_file)
 
         # Register some volumes
-        tracker.register_volume(
-            "vol_1", "RMA1", "0315", "01", "2025-01-01 00:00:00", ["DBZH"], True
-        )
-        tracker.register_volume(
-            "vol_2", "RMA1", "0315", "01", "2025-01-01 01:00:00", ["DBZH"], True
-        )
+        tracker.register_volume("vol_1", "RMA1", "0315", "01", "2025-01-01 00:00:00", ["DBZH"], True)
+        tracker.register_volume("vol_2", "RMA1", "0315", "01", "2025-01-01 01:00:00", ["DBZH"], True)
 
         volumes = tracker.get_unprocessed_volumes()
         assert len(volumes) >= 2
@@ -242,9 +238,7 @@ class TestSQLiteStateTracker:
         db_file = tmp_path / "state.db"
         tracker = SQLiteStateTracker(db_file)
 
-        tracker.register_volume(
-            "vol_1", "RMA1", "0315", "01", "2025-01-01 00:00:00", ["DBZH"], True
-        )
+        tracker.register_volume("vol_1", "RMA1", "0315", "01", "2025-01-01 00:00:00", ["DBZH"], True)
 
         tracker.mark_volume_processing("vol_1", "processing")
         volume = tracker.get_volume_info("vol_1")
@@ -262,12 +256,8 @@ class TestSQLiteStateTracker:
         db_file = tmp_path / "state.db"
         tracker = SQLiteStateTracker(db_file)
 
-        tracker.register_volume(
-            "vol_1", "RMA1", "0315", "01", "2025-01-01 00:00:00", ["DBZH"], True
-        )
-        tracker.register_volume(
-            "vol_2", "RMA1", "0315", "01", "2025-01-01 01:00:00", ["DBZH"], True
-        )
+        tracker.register_volume("vol_1", "RMA1", "0315", "01", "2025-01-01 00:00:00", ["DBZH"], True)
+        tracker.register_volume("vol_2", "RMA1", "0315", "01", "2025-01-01 01:00:00", ["DBZH"], True)
 
         tracker.mark_volume_processing("vol_1", "completed")
 
@@ -307,9 +297,7 @@ class TestSQLiteStateTracker:
         db_file = tmp_path / "state.db"
         tracker = SQLiteStateTracker(db_file)
 
-        tracker.register_volume(
-            "vol_1", "RMA1", "0315", "01", "2025-01-01 00:00:00", ["DBZH"], True
-        )
+        tracker.register_volume("vol_1", "RMA1", "0315", "01", "2025-01-01 00:00:00", ["DBZH"], True)
 
         # Mark as processing
         tracker.mark_volume_processing("vol_1", "processing")
@@ -326,9 +314,7 @@ class TestSQLiteStateTracker:
         db_file = tmp_path / "state.db"
         tracker = SQLiteStateTracker(db_file)
 
-        tracker.register_volume(
-            "vol_1", "RMA1", "0315", "01", "2025-01-01 00:00:00", ["DBZH"], True
-        )
+        tracker.register_volume("vol_1", "RMA1", "0315", "01", "2025-01-01 00:00:00", ["DBZH"], True)
 
         tracker.register_product_generation("vol_1", "image")
 
@@ -342,9 +328,7 @@ class TestSQLiteStateTracker:
         db_file = tmp_path / "state.db"
         tracker = SQLiteStateTracker(db_file)
 
-        tracker.register_volume(
-            "vol_1", "RMA1", "0315", "01", "2025-01-01 00:00:00", ["DBZH"], True
-        )
+        tracker.register_volume("vol_1", "RMA1", "0315", "01", "2025-01-01 00:00:00", ["DBZH"], True)
 
         tracker.register_product_generation("vol_1", "image")
         tracker.mark_product_status("vol_1", "image", "processing")

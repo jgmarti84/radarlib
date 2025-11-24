@@ -4,7 +4,7 @@
 import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -126,7 +126,7 @@ class TestProcessingDaemon:
     def test_init_creates_state_tracker(self, daemon_config):
         """Test that initialization creates state tracker."""
         with patch("radarlib.io.ftp.processing_daemon.SQLiteStateTracker") as mock_tracker:
-            daemon = ProcessingDaemon(daemon_config)
+            _daemon = ProcessingDaemon(daemon_config)  # noqa: F841
 
             mock_tracker.assert_called_once_with(daemon_config.state_db)
 
@@ -174,9 +174,7 @@ class TestProcessingDaemon:
             daemon = ProcessingDaemon(daemon_config)
             await daemon._check_and_reset_stuck_volumes()
 
-            mock_tracker.reset_stuck_volumes.assert_called_once_with(
-                daemon_config.stuck_volume_timeout_minutes
-            )
+            mock_tracker.reset_stuck_volumes.assert_called_once_with(daemon_config.stuck_volume_timeout_minutes)
 
     @pytest.mark.asyncio
     async def test_check_volume_completeness(self, daemon_config):
@@ -264,16 +262,12 @@ class TestProcessingDaemon:
             }
 
             # Mock the decode and save method
-            with patch.object(
-                daemon, "_decode_and_save_volume", return_value=Path("/tmp/output.nc")
-            ) as mock_decode:
+            with patch.object(daemon, "_decode_and_save_volume", return_value=Path("/tmp/output.nc")):
                 result = await daemon._process_volume_async(volume_info)
 
                 assert result is True
                 mock_tracker.mark_volume_processing.assert_any_call("vol_123", "processing")
-                mock_tracker.mark_volume_processing.assert_any_call(
-                    "vol_123", "completed", "/tmp/output.nc"
-                )
+                mock_tracker.mark_volume_processing.assert_any_call("vol_123", "completed", "/tmp/output.nc")
                 assert daemon._stats["volumes_processed"] == 1
 
     @pytest.mark.asyncio
