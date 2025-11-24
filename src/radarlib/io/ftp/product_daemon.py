@@ -5,9 +5,8 @@ import asyncio
 import gc
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from .sqlite_state_tracker import SQLiteStateTracker
 
@@ -57,7 +56,7 @@ class ProductGenerationDaemon:
 
     The daemon implements the functionality similar to process_volume function from
     vol_process.py, but with all database updates and error tracking implemented.
-    
+
     Volumes are processed sequentially to avoid threading issues with matplotlib and NetCDF
     libraries, ensuring reliable and stable product generation.
 
@@ -185,7 +184,7 @@ class ProductGenerationDaemon:
         # Process volumes sequentially to avoid threading issues with matplotlib/NetCDF
         num_success = 0
         num_failed = 0
-        
+
         for volume_info in volumes:
             try:
                 result = await self._generate_product_async(volume_info)
@@ -196,7 +195,7 @@ class ProductGenerationDaemon:
             except Exception as e:
                 logger.error(f"Exception processing volume {volume_info.get('volume_id')}: {e}", exc_info=True)
                 num_failed += 1
-        
+
         if num_failed > 0:
             logger.warning(
                 f"{self.config.product_type} generation complete: {num_success} succeeded, {num_failed} failed"
@@ -224,9 +223,11 @@ class ProductGenerationDaemon:
         if not netcdf_path:
             logger.error(f"No NetCDF path found for volume {volume_id}")
             self.state_tracker.mark_product_status(
-                volume_id, self.config.product_type, "failed",
+                volume_id,
+                self.config.product_type,
+                "failed",
                 error_message="No NetCDF path found",
-                error_type="NO_NETCDF_PATH"
+                error_type="NO_NETCDF_PATH",
             )
             self._stats["volumes_failed"] += 1
             return False
@@ -235,9 +236,11 @@ class ProductGenerationDaemon:
         if not netcdf_file.exists():
             logger.error(f"NetCDF file not found: {netcdf_file}")
             self.state_tracker.mark_product_status(
-                volume_id, self.config.product_type, "failed",
+                volume_id,
+                self.config.product_type,
+                "failed",
                 error_message=f"NetCDF file not found: {netcdf_file}",
-                error_type="FILE_NOT_FOUND"
+                error_type="FILE_NOT_FOUND",
             )
             self._stats["volumes_failed"] += 1
             return False
@@ -254,21 +257,23 @@ class ProductGenerationDaemon:
 
             # Mark as completed
             self.state_tracker.mark_product_status(volume_id, self.config.product_type, "completed")
-            logger.info(
-                f"Successfully generated {self.config.product_type} for {completeness_str} volume {volume_id}"
-            )
+            logger.info(f"Successfully generated {self.config.product_type} for {completeness_str} volume {volume_id}")
             self._stats["volumes_processed"] += 1
             return True
 
         except Exception as e:
-            error_msg = f"Failed to generate {self.config.product_type} for {completeness_str} volume {volume_id}: {str(e)}"
+            error_msg = (
+                f"Failed to generate {self.config.product_type} for {completeness_str} volume {volume_id}: {str(e)}"
+            )
             logger.error(error_msg, exc_info=True)
             # Determine error type from exception
             error_type = type(e).__name__
             self.state_tracker.mark_product_status(
-                volume_id, self.config.product_type, "failed",
+                volume_id,
+                self.config.product_type,
+                "failed",
                 error_message=str(e)[:500],  # Limit error message length
-                error_type=error_type
+                error_type=error_type,
             )
             self._stats["volumes_failed"] += 1
             return False
@@ -282,36 +287,26 @@ class ProductGenerationDaemon:
         """
         # Import dependencies
         import matplotlib
+
         # Set backend to Agg for non-interactive plotting
-        matplotlib.use('Agg')
-        
+        matplotlib.use("Agg")
+
+        import matplotlib.pyplot as plt
+        import pyart
+        from pyart.config import get_field_name
+
         from radarlib import config
         from radarlib.io.pyart.colmax import generate_colmax
         from radarlib.io.pyart.filters import filter_fields_grc1
         from radarlib.io.pyart.pyart_radar import estandarizar_campos_RMA, read_radar_netcdf
         from radarlib.io.pyart.radar_png_plotter import FieldPlotConfig, RadarPlotConfig, plot_ppi_field, save_ppi_png
-        from radarlib.utils.fields_utils import get_lowest_nsweep
         from radarlib.io.pyart.vol_process import determine_reflectivity_fields, product_path_and_filename
-        
-        import pyart
-        from pyart.config import get_field_name
-        import matplotlib.pyplot as plt
+        from radarlib.utils.fields_utils import get_lowest_nsweep
 
         filename = str(netcdf_path)
-        volume_id = volume_info["volume_id"]
         vol_types = self.config.volume_types
-        from radarlib.io.pyart.filters import filter_fields_grc1
-        from radarlib.io.pyart.pyart_radar import estandarizar_campos_RMA, read_radar_netcdf
-        from radarlib.io.pyart.radar_png_plotter import FieldPlotConfig, RadarPlotConfig, plot_ppi_field, save_ppi_png
-        from radarlib.utils.fields_utils import get_lowest_nsweep
-        from radarlib.io.pyart.vol_process import determine_reflectivity_fields, product_path_and_filename
-        
-        import pyart
-        from pyart.config import get_field_name
-        import matplotlib.pyplot as plt
-
         filename = str(netcdf_path)
-        
+
         try:
             # --- Load volume -----------------------------------------------------------------
             try:
@@ -572,13 +567,20 @@ class ProductGenerationDaemon:
             # Cleanup - ensure all matplotlib figures are closed
             try:
                 import matplotlib.pyplot as plt
+
                 plt.close("all")
-            except:
-                pass
+            except Exception:
+                # Non-critical: matplotlib cleanup may fail, don't let it block shutdown
+                logger.debug("Failed to close matplotlib figures during cleanup", exc_info=False)
+
+            # Cleanup radar object if it was created
             try:
-                del radar
-            except:
-                pass
+                if "radar" in locals():
+                    del radar
+            except Exception:
+                # Non-critical: radar cleanup may fail
+                logger.debug("Failed to delete radar object during cleanup", exc_info=False)
+
             gc.collect()
 
     def get_stats(self) -> Dict:
@@ -592,10 +594,6 @@ class ProductGenerationDaemon:
             "running": self._running,
             "volumes_processed": self._stats["volumes_processed"],
             "volumes_failed": self._stats["volumes_failed"],
-            "pending_volumes": len(
-                self.state_tracker.get_products_by_status("pending", self.config.product_type)
-            ),
-            "completed_volumes": len(
-                self.state_tracker.get_products_by_status("completed", self.config.product_type)
-            ),
+            "pending_volumes": len(self.state_tracker.get_products_by_status("pending", self.config.product_type)),
+            "completed_volumes": len(self.state_tracker.get_products_by_status("completed", self.config.product_type)),
         }
