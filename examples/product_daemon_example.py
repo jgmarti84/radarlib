@@ -35,7 +35,7 @@ def example_basic_product_daemon():
         },
     }
 
-    radar_name = "RMA1"
+    radar_name = "RMA2"
     base_path = Path(os.path.join(config.ROOT_RADAR_FILES_PATH, radar_name))
 
     daemon_config = ProductGenerationDaemonConfig(

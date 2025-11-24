@@ -1,6 +1,7 @@
 import datetime
 import gc
 import logging
+import os
 from pathlib import Path
 from typing import Dict
 
@@ -430,7 +431,6 @@ def product_path_and_filename(radar, field, sweep, round_filename=True, filtered
 
 
 if __name__ == "__main__":
-    import os
 
     # Example usage
     example_filename = os.path.join(config.root_project, "outputs/example_netcdfs/RMA11_0315_01_20251020T151109Z.nc")

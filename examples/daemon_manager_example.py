@@ -55,8 +55,12 @@ def example_basic_daemon_manager():
         # end_date=None,  # Continuous
         download_poll_interval=60,
         processing_poll_interval=30,
+        product_poll_interval=30,
         enable_download_daemon=True,
         enable_processing_daemon=True,
+        enable_product_daemon=True,
+        product_type="image",
+        add_colmax=True,
     )
 
     # Create manager
