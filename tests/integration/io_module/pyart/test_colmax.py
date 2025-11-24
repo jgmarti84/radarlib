@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 Tests for the refactored COLMAX generation.
+
+Uses the new module structure for imports.
 """
 import time
 from pathlib import Path
@@ -16,12 +18,13 @@ from radarlib.io.pyart.vvg import get_ordered_sweep_list, get_vertical_vinculati
 @pytest.fixture
 def radar_object(sample_RMA11_vol1_bufr_files):
     """Load and standardize example radar for testing."""
-    netcdf_fname = Path(__file__).parent.parent.parent / "outputs/example_netcdfs/RMA11_0315_01_20251020T152828Z.nc"
+    netcdf_fname = Path(__file__).parent.parent.parent.parent / "outputs/example_netcdfs/RMA11_0315_01_20251020T152828Z.nc"
     if not netcdf_fname.exists():
-        from radarlib.io.bufr.pyart_writer import bufr_paths_to_pyart
+        # Use new import path
+        from radarlib.io.bufr.bufr_to_pyart import bufr_paths_to_pyart
 
         # build the radar object from the bufr files
-        save_path = Path(__file__).parent.parent.parent / "outputs/example_netcdfs/"
+        save_path = Path(__file__).parent.parent.parent.parent / "outputs/example_netcdfs/"
         radar = bufr_paths_to_pyart(
             [str(fn) for fn in sample_RMA11_vol1_bufr_files], root_resources=None, save_path=save_path
         )

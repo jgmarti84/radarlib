@@ -1,10 +1,15 @@
+"""Integration tests for PyART radar conversion.
+
+Tests the BUFR to PyART conversion using the new module structure.
+"""
+
 from pathlib import Path
 
 import numpy as np
 import pytest
 
-from radarlib.io.bufr.bufr import bufr_to_dict
-from radarlib.io.bufr.pyart_writer import bufr_fields_to_pyart_radar
+from radarlib.io.bufr import bufr_to_dict
+from radarlib.io.bufr.bufr_to_pyart import bufr_fields_to_pyart_radar
 
 
 @pytest.mark.integration

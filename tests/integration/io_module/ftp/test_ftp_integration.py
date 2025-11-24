@@ -5,7 +5,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from radarlib.io.ftp import FileStateTracker, FTPClient
+from radarlib.io.ftp import FTPClient
+from radarlib.state import FileStateTracker
 
 
 @pytest.mark.integration

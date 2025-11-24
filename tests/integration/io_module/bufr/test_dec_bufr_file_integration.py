@@ -1,9 +1,14 @@
+"""Integration tests for BUFR file decoding.
+
+Tests the BUFR decoding functionality using radarlib.io.bufr module.
+"""
+
 from pathlib import Path
 
 import numpy as np
 import pytest
 
-from radarlib.io.bufr.bufr import bufr_to_dict
+from radarlib.io.bufr import bufr_to_dict
 
 
 @pytest.mark.integration

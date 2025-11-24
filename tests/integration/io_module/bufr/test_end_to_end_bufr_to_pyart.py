@@ -1,8 +1,11 @@
 """End-to-end tests for the new BUFR to PyART conversion API.
 
 This module contains tests for the modern implementation using:
-- bufr_to_dict() from radarlib.io.bufr.bufr (new API with legacy=False)
-- bufr_to_pyart() and bufr_fields_to_pyart_radar() from radarlib.io.bufr.pyart_writer
+- bufr_to_dict() from radarlib.io.bufr (new API with legacy=False)
+- bufr_to_pyart() and bufr_fields_to_pyart_radar() from radarlib.io.bufr
+
+Note: The old import path radarlib.io.bufr.pyart_writer is deprecated.
+      Use radarlib.io.bufr.bufr_to_pyart or radarlib.io.bufr instead.
 """
 
 from pathlib import Path
@@ -22,7 +25,8 @@ def test_end_to_end_bufr_to_pyart(tmp_save_path: Path):
     if not bufr_files:
         pytest.skip("No BUFR test files found")
 
-    from radarlib.io.bufr.pyart_writer import bufr_paths_to_pyart
+    # Use new import path
+    from radarlib.io.bufr.bufr_to_pyart import bufr_paths_to_pyart
     from radarlib.utils.names_utils import get_netcdf_filename_from_bufr_filename
 
     results = bufr_paths_to_pyart([str(bufr_files[0])], root_resources=None, save_path=tmp_save_path)
@@ -54,9 +58,9 @@ def test_end_to_end_bufr_multiple_files_to_pyart_radar(tmp_path: Path):
     if not bufr_files:
         pytest.skip("No BUFR test files found in RMA5 directory")
 
-    # Import the decoder and writer
-    from radarlib.io.bufr.bufr import bufr_to_dict
-    from radarlib.io.bufr.pyart_writer import bufr_fields_to_pyart_radar
+    # Use new import paths
+    from radarlib.io.bufr import bufr_to_dict
+    from radarlib.io.bufr.bufr_to_pyart import bufr_fields_to_pyart_radar
 
     # try:
     #     import pyart
