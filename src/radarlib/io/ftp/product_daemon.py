@@ -82,6 +82,7 @@ class ProductGenerationDaemon:
         self.state_tracker = SQLiteStateTracker(config.state_db)
         self._running = False
         self._processing_semaphore: Optional[asyncio.Semaphore] = None
+        self._executor = None  # Will be initialized in run()
 
         # Ensure output directory exists
         self.config.local_product_dir.mkdir(parents=True, exist_ok=True)
@@ -98,8 +99,12 @@ class ProductGenerationDaemon:
 
         Continuously checks for volumes ready for product generation and processes them.
         """
+        from concurrent.futures import ThreadPoolExecutor
+        
         self._running = True
         self._processing_semaphore = asyncio.Semaphore(self.config.max_concurrent_processing)
+        # Create a dedicated thread pool executor with max_workers matching concurrent processing limit
+        self._executor = ThreadPoolExecutor(max_workers=self.config.max_concurrent_processing)
 
         logger.info(f"Starting {self.config.product_type} generation daemon for radar '{self.config.radar_name}'")
         logger.info(f"Monitoring NetCDF files in '{self.config.local_netcdf_dir}'")
@@ -132,6 +137,10 @@ class ProductGenerationDaemon:
             logger.info(f"{self.config.product_type} daemon interrupted, shutting down...")
         finally:
             self._running = False
+            # Shutdown executor
+            if self._executor:
+                self._executor.shutdown(wait=True)
+                logger.info("Executor shutdown complete")
             # Log final statistics
             logger.info(
                 f"{self.config.product_type} daemon shutting down. Statistics: "
@@ -286,9 +295,9 @@ class ProductGenerationDaemon:
         volume_id = volume_info["volume_id"]
         vol_types = self.config.volume_types
 
-        # Run in executor to avoid blocking
+        # Run in dedicated executor to avoid blocking and ensure thread isolation
         loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, self._generate_products_sync, netcdf_path, volume_id, vol_types)
+        await loop.run_in_executor(self._executor, self._generate_products_sync, netcdf_path, volume_id, vol_types)
 
     def _generate_products_sync(self, netcdf_path: Path, volume_id: str, vol_types: Dict) -> None:
         """
@@ -297,6 +306,10 @@ class ProductGenerationDaemon:
         This implements the process_volume logic with all TODOs resolved.
         """
         # Import dependencies
+        import matplotlib
+        # Set backend to Agg for thread safety - must be done before importing pyplot
+        matplotlib.use('Agg')
+        
         from radarlib import config
         from radarlib.io.pyart.colmax import generate_colmax
         from radarlib.io.pyart.filters import filter_fields_grc1
@@ -568,7 +581,12 @@ class ProductGenerationDaemon:
             logger.info(f"Product generation completed successfully for {filename_stem}")
 
         finally:
-            # Cleanup
+            # Cleanup - ensure all matplotlib figures are closed
+            try:
+                import matplotlib.pyplot as plt
+                plt.close("all")
+            except:
+                pass
             try:
                 del radar
             except:
