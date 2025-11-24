@@ -86,6 +86,13 @@ class ContinuousDaemon:
         except Exception as e:
             logger.exception("[%s] Failed to initialize state tracker", self.radar_name)
             raise ContinuousDaemonError(f"Failed to initialize state tracker: {e}") from e
+        self._stats = {
+            "bufr_files_downloaded": 0,
+            "bufr_files_failed": 0,
+            "bufr_files_pending": 0,
+            "last_downloaded": None,
+            "total_bytes": 0,
+        }
 
     @property
     def vol_types(self):
@@ -239,3 +246,19 @@ class ContinuousDaemon:
             local_path = self.local_dir / fname
             candidates.append((remote, local_path, fname, dt, "new"))
         return candidates
+
+    def stop(self) -> None:
+        """Stop the daemon gracefully."""
+        self._running = False
+        logger.info("Daemon stop requested")
+
+    def get_stats(self) -> Dict[str, Optional[object]]:
+        """
+        Retrieve basic statistics for this daemon's radar from the state tracker.
+
+        """
+        return {
+            "running": self._running,
+            "bufr_files_downloaded": self._stats["bufr_files_downloaded"],
+            "bufr_files_failed": self._stats["bufr_files_failed"],
+        }

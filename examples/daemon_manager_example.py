@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from radarlib import config
-from radarlib.io.ftp import DaemonManager, DaemonManagerConfig
+from radarlib.io.ftp.daemon_manager import DaemonManager, DaemonManagerConfig
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -36,26 +36,27 @@ def example_basic_daemon_manager():
             "01": ["DBZH", "DBZV", "ZDR", "RHOHV", "PHIDP", "KDP"],
             "02": ["VRAD", "WRAD"],
         },
+        "0200": {"01": ["DBZH", "DBZV", "ZDR", "RHOHV", "PHIDP", "KDP", "CM"]},
     }
 
-    radar_name = "RMA1"
+    radar_name = "RMA2"
     base_path = Path(os.path.join(config.ROOT_RADAR_FILES_PATH, radar_name))
 
     # Create manager configuration
     manager_config = DaemonManagerConfig(
-        radar_code=radar_name,
+        radar_name=radar_name,
         base_path=base_path,
         ftp_host=config.FTP_HOST,
         ftp_user=config.FTP_USER,
         ftp_password=config.FTP_PASS,
         ftp_base_path="/L2",
         volume_types=volume_types,
-        start_date=datetime(2025, 11, 19, 10, tzinfo=timezone.utc),
-        end_date=None,  # Continuous
+        start_date=datetime(2025, 11, 24, 10, 0, 0, tzinfo=timezone.utc),
+        # end_date=None,  # Continuous
         download_poll_interval=60,
         processing_poll_interval=30,
         enable_download_daemon=True,
-        enable_processing_daemon=False,
+        enable_processing_daemon=True,
     )
 
     # Create manager

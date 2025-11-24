@@ -4,7 +4,7 @@
 import hashlib
 import logging
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Set
 
@@ -695,3 +695,72 @@ class SQLiteStateTracker:
         )
 
         return [dict(row) for row in cursor.fetchall()]
+
+    def get_stuck_volumes(self, timeout_minutes: int) -> List[Dict]:
+        """
+        Get volumes that have been in 'processing' status for longer than the timeout.
+
+        These volumes are considered stuck and should be reset back to 'pending' for retry.
+
+        Args:
+            timeout_minutes: Timeout in minutes - volumes in 'processing' status longer than
+                           this will be considered stuck
+
+        Returns:
+            List of volume info dictionaries that are stuck
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        # Calculate the cutoff time (timeout_minutes ago)
+        now = datetime.now(timezone.utc)
+        cutoff_time = now - timedelta(minutes=timeout_minutes)
+        cutoff_iso = cutoff_time.isoformat()
+
+        cursor.execute(
+            """
+            SELECT * FROM volume_processing
+            WHERE status = 'processing' AND updated_at < ?
+            ORDER BY updated_at ASC
+        """,
+            (cutoff_iso,),
+        )
+
+        return [dict(row) for row in cursor.fetchall()]
+
+    def reset_stuck_volumes(self, timeout_minutes: int) -> int:
+        """
+        Reset volumes that have been stuck in 'processing' status back to 'pending'.
+
+        This allows stuck volumes to be retried. Updates their status and updated_at timestamp.
+
+        Args:
+            timeout_minutes: Timeout in minutes - volumes in 'processing' status longer than
+                           this will be reset
+
+        Returns:
+            Number of volumes that were reset
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        now = datetime.now(timezone.utc).isoformat()
+
+        # Calculate the cutoff time (timeout_minutes ago)
+        cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=timeout_minutes)
+        cutoff_iso = cutoff_time.isoformat()
+
+        cursor.execute(
+            """
+            UPDATE volume_processing
+            SET status = 'pending', updated_at = ?
+            WHERE status = 'processing' AND updated_at < ?
+        """,
+            (now, cutoff_iso),
+        )
+
+        conn.commit()
+        num_reset = cursor.rowcount
+        if num_reset > 0:
+            logger.info(f"Reset {num_reset} stuck volumes from 'processing' back to 'pending'")
+
+        return num_reset

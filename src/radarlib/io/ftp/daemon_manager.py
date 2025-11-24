@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional
 
-from radarlib.io.ftp import DateBasedDaemonConfig, DateBasedFTPDaemon, ProcessingDaemon, ProcessingDaemonConfig
+from radarlib.io.ftp import ContinuousDaemon, ContinuousDaemonConfig, ProcessingDaemon, ProcessingDaemonConfig
 
 logger = logging.getLogger(__name__)
 
@@ -27,14 +27,13 @@ class DaemonManagerConfig:
         ftp_base_path: Remote FTP base path
         volume_types: Volume type configuration
         start_date: Start date for downloads (UTC)
-        end_date: Optional end date for downloads
         download_poll_interval: Seconds between download checks
         processing_poll_interval: Seconds between processing checks
         enable_download_daemon: Whether to start download daemon
         enable_processing_daemon: Whether to start processing daemon
     """
 
-    radar_code: str
+    radar_name: str
     base_path: Path
     ftp_host: str
     ftp_user: str
@@ -42,7 +41,7 @@ class DaemonManagerConfig:
     ftp_base_path: str
     volume_types: Dict
     start_date: datetime
-    end_date: Optional[datetime] = None
+    # end_date: Optional[datetime] = None
     download_poll_interval: int = 60
     processing_poll_interval: int = 30
     enable_download_daemon: bool = True
@@ -70,7 +69,7 @@ class DaemonManager:
             config: Manager configuration
         """
         self.config = config
-        self.download_daemon: Optional[DateBasedFTPDaemon] = None
+        self.download_daemon: Optional[ContinuousDaemon] = None
         self.processing_daemon: Optional[ProcessingDaemon] = None
         self._tasks = []
         self._running = False
@@ -84,22 +83,22 @@ class DaemonManager:
         self.bufr_dir.mkdir(parents=True, exist_ok=True)
         self.netcdf_dir.mkdir(parents=True, exist_ok=True)
 
-    def _create_download_daemon(self) -> DateBasedFTPDaemon:
+    def _create_download_daemon(self) -> ContinuousDaemon:
         """Create download daemon with current configuration."""
-        download_config = DateBasedDaemonConfig(
+        download_config = ContinuousDaemonConfig(
             host=self.config.ftp_host,
             username=self.config.ftp_user,
             password=self.config.ftp_password,
+            radar_name=self.config.radar_name,
             remote_base_path=self.config.ftp_base_path,
-            radar_code=self.config.radar_code,
-            local_download_dir=self.bufr_dir,
+            local_bufr_dir=self.bufr_dir,
             state_db=self.state_db,
             start_date=self.config.start_date,
-            end_date=self.config.end_date,
+            # end_date=self.config.end_date,
             poll_interval=self.config.download_poll_interval,
-            volume_types=self.config.volume_types,
+            vol_types=self.config.volume_types,
         )
-        return DateBasedFTPDaemon(download_config)
+        return ContinuousDaemon(download_config)
 
     def _create_processing_daemon(self) -> ProcessingDaemon:
         """Create processing daemon with current configuration."""
@@ -107,8 +106,9 @@ class DaemonManager:
             local_bufr_dir=self.bufr_dir,
             local_netcdf_dir=self.netcdf_dir,
             state_db=self.state_db,
+            start_date=self.config.start_date,
             volume_types=self.config.volume_types,
-            radar_name=self.config.radar_code,
+            radar_name=self.config.radar_name,
             poll_interval=self.config.processing_poll_interval,
         )
         return ProcessingDaemon(processing_config)
@@ -127,12 +127,12 @@ class DaemonManager:
         self._running = True
         self._tasks = []
 
-        logger.info(f"Starting daemon manager for radar '{self.config.radar_code}'")
+        logger.info(f"Starting daemon manager for radar '{self.config.radar_name}'")
 
         # Create and start download daemon
         if self.config.enable_download_daemon:
             self.download_daemon = self._create_download_daemon()
-            task = asyncio.create_task(self.download_daemon.run())
+            task = asyncio.create_task(self.download_daemon.run_service())
             self._tasks.append(("download", task))
             logger.info("Started download daemon")
 
@@ -211,7 +211,7 @@ class DaemonManager:
 
         # Create and start new download daemon
         self.download_daemon = self._create_download_daemon()
-        task = asyncio.create_task(self.download_daemon.run())
+        task = asyncio.create_task(self.download_daemon.run_service())
         self._tasks.append(("download", task))
         logger.info("Download daemon restarted")
 
@@ -260,7 +260,7 @@ class DaemonManager:
         """
         status = {
             "manager_running": self._running,
-            "radar_code": self.config.radar_code,
+            "radar_code": self.config.radar_name,
             "base_path": str(self.config.base_path),
             "download_daemon": {
                 "enabled": self.config.enable_download_daemon,

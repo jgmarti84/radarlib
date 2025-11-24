@@ -45,6 +45,7 @@ def example_basic_processing_daemon():
         state_db=base_path / "state.db",  # Same database as download daemon
         volume_types=volume_types,
         radar_name=radar_name,
+        start_date=datetime(2025, 11, 23, 20, 0, 0, tzinfo=timezone.utc),
         poll_interval=30,  # Check every 30 seconds
         max_concurrent_processing=2,  # Process 2 volumes at a time
     )
