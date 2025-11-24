@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Simple daemon manager for FTP, Processing, and PNG Generation daemons."""
+"""Simple daemon manager for FTP, Processing, and Product Generation daemons."""
 
 import asyncio
 import logging
@@ -11,10 +11,10 @@ from typing import Dict, Optional
 from radarlib.io.ftp import (
     ContinuousDaemon,
     ContinuousDaemonConfig,
-    PNGGenerationDaemon,
-    PNGGenerationDaemonConfig,
     ProcessingDaemon,
     ProcessingDaemonConfig,
+    ProductGenerationDaemon,
+    ProductGenerationDaemonConfig,
 )
 
 logger = logging.getLogger(__name__)
@@ -36,11 +36,12 @@ class DaemonManagerConfig:
         start_date: Start date for downloads (UTC)
         download_poll_interval: Seconds between download checks
         processing_poll_interval: Seconds between processing checks
-        png_poll_interval: Seconds between PNG generation checks
+        product_poll_interval: Seconds between product generation checks
         enable_download_daemon: Whether to start download daemon
         enable_processing_daemon: Whether to start processing daemon
-        enable_png_daemon: Whether to start PNG generation daemon
-        add_colmax: Whether to generate COLMAX field in PNG daemon
+        enable_product_daemon: Whether to start product generation daemon
+        product_type: Type of product to generate ('image', 'geotiff', etc.)
+        add_colmax: Whether to generate COLMAX field in product daemon
     """
 
     radar_name: str
@@ -54,16 +55,17 @@ class DaemonManagerConfig:
     # end_date: Optional[datetime] = None
     download_poll_interval: int = 60
     processing_poll_interval: int = 30
-    png_poll_interval: int = 30
+    product_poll_interval: int = 30
     enable_download_daemon: bool = True
     enable_processing_daemon: bool = True
-    enable_png_daemon: bool = True
+    enable_product_daemon: bool = True
+    product_type: str = "image"
     add_colmax: bool = True
 
 
 class DaemonManager:
     """
-    Simple manager for FTP download, BUFR processing, and PNG generation daemons.
+    Simple manager for FTP download, BUFR processing, and product generation daemons.
 
     Provides easy start/stop control and configuration management for all daemons.
 
@@ -84,20 +86,20 @@ class DaemonManager:
         self.config = config
         self.download_daemon: Optional[ContinuousDaemon] = None
         self.processing_daemon: Optional[ProcessingDaemon] = None
-        self.png_daemon: Optional[PNGGenerationDaemon] = None
+        self.product_daemon: Optional[ProductGenerationDaemon] = None
         self._tasks = []
         self._running = False
 
         # Setup paths
         self.bufr_dir = config.base_path / "bufr"
         self.netcdf_dir = config.base_path / "netcdf"
-        self.png_dir = config.base_path / "png"
+        self.product_dir = config.base_path / "products"
         self.state_db = config.base_path / "state.db"
 
         # Ensure directories exist
         self.bufr_dir.mkdir(parents=True, exist_ok=True)
         self.netcdf_dir.mkdir(parents=True, exist_ok=True)
-        self.png_dir.mkdir(parents=True, exist_ok=True)
+        self.product_dir.mkdir(parents=True, exist_ok=True)
 
     def _create_download_daemon(self) -> ContinuousDaemon:
         """Create download daemon with current configuration."""
@@ -129,24 +131,25 @@ class DaemonManager:
         )
         return ProcessingDaemon(processing_config)
 
-    def _create_png_daemon(self) -> PNGGenerationDaemon:
-        """Create PNG generation daemon with current configuration."""
-        png_config = PNGGenerationDaemonConfig(
+    def _create_product_daemon(self) -> ProductGenerationDaemon:
+        """Create product generation daemon with current configuration."""
+        product_config = ProductGenerationDaemonConfig(
             local_netcdf_dir=self.netcdf_dir,
-            local_png_dir=self.png_dir,
+            local_product_dir=self.product_dir,
             state_db=self.state_db,
             volume_types=self.config.volume_types,
             radar_name=self.config.radar_name,
-            poll_interval=self.config.png_poll_interval,
+            poll_interval=self.config.product_poll_interval,
+            product_type=self.config.product_type,
             add_colmax=self.config.add_colmax,
         )
-        return PNGGenerationDaemon(png_config)
+        return ProductGenerationDaemon(product_config)
 
     async def start(self) -> None:
         """
         Start enabled daemons.
 
-        Starts the download, processing, and/or PNG generation daemons based on configuration.
+        Starts the download, processing, and/or product generation daemons based on configuration.
         Runs until stopped or cancelled.
         """
         if self._running:
@@ -172,12 +175,12 @@ class DaemonManager:
             self._tasks.append(("processing", task))
             logger.info("Started processing daemon")
 
-        # Create and start PNG generation daemon
-        if self.config.enable_png_daemon:
-            self.png_daemon = self._create_png_daemon()
-            task = asyncio.create_task(self.png_daemon.run())
-            self._tasks.append(("png", task))
-            logger.info("Started PNG generation daemon")
+        # Create and start product generation daemon
+        if self.config.enable_product_daemon:
+            self.product_daemon = self._create_product_daemon()
+            task = asyncio.create_task(self.product_daemon.run())
+            self._tasks.append(("product", task))
+            logger.info("Started product generation daemon")
 
         if not self._tasks:
             logger.warning("No daemons enabled in configuration")
@@ -207,9 +210,9 @@ class DaemonManager:
             self.processing_daemon.stop()
             logger.info("Stopped processing daemon")
 
-        if self.png_daemon:
-            self.png_daemon.stop()
-            logger.info("Stopped PNG generation daemon")
+        if self.product_daemon:
+            self.product_daemon.stop()
+            logger.info("Stopped product generation daemon")
 
         # Cancel any running tasks
         for name, task in self._tasks:
@@ -291,42 +294,6 @@ class DaemonManager:
         self._tasks.append(("processing", task))
         logger.info("Processing daemon restarted")
 
-    async def restart_png_daemon(self, new_config: Optional[Dict] = None) -> None:
-        """
-        Restart PNG generation daemon with optional new configuration.
-
-        Args:
-            new_config: Optional dict with config parameters to update
-        """
-        logger.info("Restarting PNG generation daemon")
-
-        # Stop existing PNG daemon
-        if self.png_daemon:
-            self.png_daemon.stop()
-            # Find and cancel its task
-            for i, (name, task) in enumerate(self._tasks):
-                if name == "png" and not task.done():
-                    task.cancel()
-                    try:
-                        await task
-                    except asyncio.CancelledError:
-                        pass
-                    self._tasks.pop(i)
-                    break
-
-        # Apply new configuration if provided
-        if new_config:
-            for key, value in new_config.items():
-                if hasattr(self.config, key):
-                    setattr(self.config, key, value)
-                    logger.debug(f"Updated config: {key} = {value}")
-
-        # Create and start new PNG daemon
-        self.png_daemon = self._create_png_daemon()
-        task = asyncio.create_task(self.png_daemon.run())
-        self._tasks.append(("png", task))
-        logger.info("PNG generation daemon restarted")
-
     def get_status(self) -> Dict:
         """
         Get status of all daemons.
@@ -348,10 +315,10 @@ class DaemonManager:
                 "running": self.processing_daemon is not None and self.processing_daemon._running,
                 "stats": self.processing_daemon.get_stats() if self.processing_daemon else None,
             },
-            "png_daemon": {
-                "enabled": self.config.enable_png_daemon,
-                "running": self.png_daemon is not None and self.png_daemon._running,
-                "stats": self.png_daemon.get_stats() if self.png_daemon else None,
+            "product_daemon": {
+                "enabled": self.config.enable_product_daemon,
+                "running": self.product_daemon is not None and self.product_daemon._running,
+                "stats": self.product_daemon.get_stats() if self.product_daemon else None,
             },
         }
         return status
