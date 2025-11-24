@@ -16,7 +16,7 @@ class TestDaemonManagerConfig:
     def test_config_creation(self):
         """Test creating a DaemonManagerConfig."""
         config = DaemonManagerConfig(
-            radar_code="RMA1",
+            radar_name="RMA1",
             base_path=Path("/base"),
             ftp_host="ftp.example.com",
             ftp_user="user",
@@ -26,7 +26,7 @@ class TestDaemonManagerConfig:
             start_date=datetime(2025, 1, 1, tzinfo=timezone.utc),
         )
 
-        assert config.radar_code == "RMA1"
+        assert config.radar_name == "RMA1"
         assert config.base_path == Path("/base")
         assert config.ftp_host == "ftp.example.com"
         assert config.enable_download_daemon is True
@@ -37,7 +37,7 @@ class TestDaemonManagerConfig:
     def test_config_with_custom_values(self):
         """Test config with custom values."""
         config = DaemonManagerConfig(
-            radar_code="RMA1",
+            radar_name="RMA1",
             base_path=Path("/base"),
             ftp_host="ftp.example.com",
             ftp_user="user",
@@ -70,7 +70,7 @@ class TestDaemonManager:
     def manager_config(self, temp_dir):
         """Create a test manager configuration."""
         return DaemonManagerConfig(
-            radar_code="RMA1",
+            radar_name="RMA1",
             base_path=temp_dir,
             ftp_host="ftp.example.com",
             ftp_user="user",
@@ -102,9 +102,9 @@ class TestDaemonManager:
         daemon = manager._create_download_daemon()
 
         assert daemon is not None
-        assert daemon.config.radar_code == "RMA1"
+        assert daemon.config.radar_name == "RMA1"
         assert daemon.config.host == "ftp.example.com"
-        assert daemon.config.local_download_dir == manager.bufr_dir
+        assert daemon.config.local_bufr_dir == manager.bufr_dir
 
     def test_create_processing_daemon(self, manager_config):
         """Test creating processing daemon."""
@@ -112,7 +112,7 @@ class TestDaemonManager:
         daemon = manager._create_processing_daemon()
 
         assert daemon is not None
-        assert daemon.config.radar_code == "RMA1"
+        assert daemon.config.radar_name == "RMA1"
         assert daemon.config.local_bufr_dir == manager.bufr_dir
         assert daemon.config.local_netcdf_dir == manager.netcdf_dir
 
@@ -156,7 +156,7 @@ class TestDaemonManager:
     def test_selective_daemon_download_only(self, temp_dir):
         """Test enabling only download daemon."""
         config = DaemonManagerConfig(
-            radar_code="RMA1",
+            radar_name="RMA1",
             base_path=temp_dir,
             ftp_host="ftp.example.com",
             ftp_user="user",
@@ -177,7 +177,7 @@ class TestDaemonManager:
     def test_selective_daemon_processing_only(self, temp_dir):
         """Test enabling only processing daemon."""
         config = DaemonManagerConfig(
-            radar_code="RMA1",
+            radar_name="RMA1",
             base_path=temp_dir,
             ftp_host="ftp.example.com",
             ftp_user="user",

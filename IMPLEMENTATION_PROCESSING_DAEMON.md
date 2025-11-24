@@ -21,7 +21,7 @@ The goal was to implement a service that:
 ### 1. Volume Processing State Tracking
 
 **Extended SQLiteStateTracker** with new `volume_processing` table:
-- Tracks volumes by unique ID (radar + vol_code + vol_num + timestamp)
+- Tracks volumes by unique ID (radar + strategy + vol_nr + timestamp)
 - Stores expected and downloaded field types
 - Tracks completion status
 - Records processing status (pending, processing, completed, failed)
@@ -166,7 +166,7 @@ processing_config = ProcessingDaemonConfig(
     local_netcdf_dir=Path("./downloads/netcdf"),
     state_db=Path("./state.db"),  # Same database
     volume_types=volume_types,
-    radar_code="RMA1",
+    radar_name="RMA1",
 )
 
 # Run both daemons
@@ -196,7 +196,7 @@ asyncio.run(run_pipeline())
 
 ## Performance Characteristics
 
-- **Database Queries**: O(1) lookups with indexes on volume_id, radar_code, status
+- **Database Queries**: O(1) lookups with indexes on volume_id, radar_name, status
 - **Concurrent Processing**: Configurable semaphore (default: 2 volumes)
 - **Memory**: Efficient - only active volumes in memory
 - **CPU**: BUFR decoding in executor threads to avoid blocking
@@ -224,7 +224,7 @@ ProcessingDaemonConfig(
     local_netcdf_dir: Path,            # NetCDF output directory
     state_db: Path,                    # SQLite database
     volume_types: Dict,                # Expected field types
-    radar_code: str,                   # Radar identifier
+    radar_name: str,                   # Radar identifier
     poll_interval: int = 30,           # Seconds between checks
     max_concurrent_processing: int = 2, # Concurrent volumes
     root_resources: Optional[Path] = None, # BUFR decoder resources

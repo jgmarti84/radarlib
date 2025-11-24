@@ -13,20 +13,20 @@ if __name__ == "__main__":
     vol_types["0315"] = {"01": ["DBZH", "DBZV", "ZDR", "RHOHV", "PHIDP", "KDP"], "02": ["VRAD", "WRAD"]}
     vol_types["9202"] = {"01": ["DBZH", "DBZV", "ZDR", "RHOHV", "PHIDP", "KDP"], "02": ["VRAD", "WRAD"]}
 
-    config = ContinuousDaemonConfig(
+    dconfig = ContinuousDaemonConfig(
         host=config.FTP_HOST,
         username=config.FTP_USER,
         password=config.FTP_PASS,
         radar_name=radar_name,
         remote_base_path=f"/L2/{radar_name}",
-        start_date=datetime.datetime(2025, 11, 23, 13, 0, 0, tzinfo=datetime.timezone.utc),
+        start_date=datetime.datetime(2025, 11, 23, 20, 0, 0, tzinfo=datetime.timezone.utc),
         local_bufr_dir=Path(os.path.join(config.ROOT_RADAR_FILES_PATH, radar_name, "bufr")),
         state_db=Path(os.path.join(config.ROOT_RADAR_FILES_PATH, radar_name, "state.db")),
         poll_interval=30,  # Check every 30 seconds
         vol_types=vol_types,
     )
 
-    daemon = ContinuousDaemon(config)
+    daemon = ContinuousDaemon(dconfig)
 
     try:
         asyncio.run(daemon.run_service())

@@ -44,7 +44,8 @@ def example_basic_processing_daemon():
         local_netcdf_dir=base_path / "netcdf",  # Where to save NetCDF files
         state_db=base_path / "state.db",  # Same database as download daemon
         volume_types=volume_types,
-        radar_code=radar_name,
+        radar_name=radar_name,
+        start_date=datetime(2025, 11, 23, 20, 0, 0, tzinfo=timezone.utc),
         poll_interval=30,  # Check every 30 seconds
         max_concurrent_processing=2,  # Process 2 volumes at a time
     )
@@ -52,7 +53,7 @@ def example_basic_processing_daemon():
     daemon = ProcessingDaemon(daemon_config)
 
     print("\nDaemon Configuration:")
-    print(f"  Radar: {daemon_config.radar_code}")
+    print(f"  Radar: {daemon_config.radar_name}")
     print(f"  BUFR Dir: {daemon_config.local_bufr_dir}")
     print(f"  NetCDF Dir: {daemon_config.local_netcdf_dir}")
     print(f"  State DB: {daemon_config.state_db}")
@@ -121,7 +122,7 @@ def example_combined_download_and_processing():
         local_netcdf_dir=base_path / "netcdf",
         state_db=base_path / "state.db",
         volume_types=volume_types,
-        radar_code=radar_name,
+        radar_name=radar_name,
         poll_interval=30,
     )
 
@@ -212,8 +213,8 @@ def example_check_processing_status():
         print("\nNext volumes to process:")
         for i, vol in enumerate(complete_unprocessed[:5], 1):
             print(f"\n  {i}. {vol['volume_id']}")
-            print(f"     Radar: {vol['radar_code']}")
-            print(f"     Vol: {vol['vol_code']}/{vol['vol_number']}")
+            print(f"     Radar: {vol['radar_name']}")
+            print(f"     Vol: {vol['strategy']}/{vol['vol_nr']}")
             print(f"     Time: {vol['observation_datetime']}")
             print(f"     Fields: {vol['expected_fields']}")
 

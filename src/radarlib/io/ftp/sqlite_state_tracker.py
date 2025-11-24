@@ -4,7 +4,7 @@
 import hashlib
 import logging
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Set
 
@@ -283,7 +283,7 @@ class SQLiteStateTracker:
         Args:
             start_date: Start of date range
             end_date: End of date range
-            radar_code: Optional radar code to filter by
+            radar_name: Optional radar name to filter by
 
         Returns:
             List of filenames in the range
@@ -381,7 +381,7 @@ class SQLiteStateTracker:
         Get the downloaded BUFR file with the latest observation time.
 
         Args:
-            radar_code: Optional filter by radar code. If None, returns latest across all radars.
+            radar_name: Optional filter by radar name. If None, returns latest across all radars.
 
         Returns:
             Dictionary with file info (filename, remote_path, local_path, observation_datetime, etc.)
@@ -412,3 +412,355 @@ class SQLiteStateTracker:
 
         row = cursor.fetchone()
         return dict(row) if row else None
+
+    # Volume processing methods
+
+    def get_volume_id(self, radar_name: str, strategy: str, vol_nr: str, observation_datetime: str) -> str:
+        """
+        Generate unique volume identifier.
+
+        Args:
+            radar_name: Radar name (e.g., "RMA1")
+            strategy: Volume strategy/code (e.g., "0315")
+            vol_nr: Volume number (e.g., "01")
+            observation_datetime: Observation datetime (ISO format)
+
+        Returns:
+            Unique volume identifier string
+        """
+        return f"{radar_name}_{strategy}_{vol_nr}_{observation_datetime}"
+
+    def get_volume_info(self, volume_id: str) -> Optional[Dict]:
+        """
+        Get information about a volume.
+
+        Args:
+            volume_id: Volume identifier
+
+        Returns:
+            Dictionary with volume info, or None if not found
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM volume_processing WHERE volume_id = ?", (volume_id,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+    def register_volume(
+        self,
+        volume_id: str,
+        radar_name: str,
+        strategy: str,
+        vol_nr: str,
+        observation_datetime: str,
+        expected_fields: List[str],
+        is_complete: bool,
+    ) -> None:
+        """
+        Register a new volume in the database.
+
+        Args:
+            volume_id: Unique volume identifier
+            radar_name: Radar name
+            strategy: Volume strategy/code
+            vol_nr: Volume number
+            observation_datetime: Observation datetime (ISO format)
+            expected_fields: List of expected field types
+            is_complete: Whether volume is complete
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        now = datetime.now(timezone.utc).isoformat()
+
+        # Convert list to comma-separated string
+        expected_fields_str = ",".join(expected_fields)
+
+        cursor.execute(
+            """
+            INSERT INTO volume_processing
+            (volume_id, radar_name, strategy, vol_nr, observation_datetime,
+             status, is_complete, expected_fields, downloaded_fields, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, '', ?, ?)
+        """,
+            (
+                volume_id,
+                radar_name,
+                strategy,
+                vol_nr,
+                observation_datetime,
+                1 if is_complete else 0,
+                expected_fields_str,
+                now,
+                now,
+            ),
+        )
+
+        conn.commit()
+        logger.debug(f"Registered volume '{volume_id}' (complete={is_complete})")
+
+    def update_volume_fields(self, volume_id: str, downloaded_fields: List[str], is_complete: bool) -> None:
+        """
+        Update volume fields and completion status.
+
+        Args:
+            volume_id: Volume identifier
+            downloaded_fields: List of downloaded field types
+            is_complete: Whether volume is complete
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        now = datetime.now(timezone.utc).isoformat()
+
+        # Convert list to comma-separated string
+        downloaded_fields_str = ",".join(downloaded_fields)
+
+        cursor.execute(
+            """
+            UPDATE volume_processing
+            SET downloaded_fields = ?, is_complete = ?, updated_at = ?
+            WHERE volume_id = ?
+        """,
+            (downloaded_fields_str, 1 if is_complete else 0, now, volume_id),
+        )
+
+        conn.commit()
+        logger.debug(f"Updated volume '{volume_id}' fields (complete={is_complete})")
+
+    def mark_volume_processing(
+        self, volume_id: str, status: str, netcdf_path: Optional[str] = None, error_message: Optional[str] = None
+    ) -> None:
+        """
+        Mark volume processing status.
+
+        Args:
+            volume_id: Volume identifier
+            status: Processing status ('pending', 'processing', 'completed', 'failed')
+            netcdf_path: Optional path to generated NetCDF file
+            error_message: Optional error message if failed
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        now = datetime.now(timezone.utc).isoformat()
+
+        updates = ["status = ?", "updated_at = ?"]
+        params = [status, now]
+
+        if netcdf_path:
+            updates.append("netcdf_path = ?")
+            params.append(netcdf_path)
+
+        if error_message:
+            updates.append("error_message = ?")
+            params.append(error_message)
+
+        if status == "completed":
+            updates.append("processed_at = ?")
+            params.append(now)
+
+        params.append(volume_id)
+
+        cursor.execute(
+            f"""
+            UPDATE volume_processing
+            SET {', '.join(updates)}
+            WHERE volume_id = ?
+        """,
+            tuple(params),
+        )
+
+        conn.commit()
+        logger.debug(f"Marked volume '{volume_id}' as {status}")
+
+    def get_complete_unprocessed_volumes(self) -> List[Dict]:
+        """
+        Get complete volumes that haven't been processed yet.
+
+        Returns:
+            List of volume info dictionaries
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT * FROM volume_processing
+            WHERE is_complete = 1 AND status = 'pending'
+            ORDER BY observation_datetime ASC
+        """
+        )
+
+        return [dict(row) for row in cursor.fetchall()]
+
+    def get_volume_files(self, radar_name: str, strategy: str, vol_nr: str, observation_datetime: str) -> List[Dict]:
+        """
+        Get all BUFR file information for a specific volume.
+
+        Args:
+            radar_name: Radar name
+            strategy: Volume strategy/code
+            vol_nr: Volume number
+            observation_datetime: Observation datetime (ISO format)
+
+        Returns:
+            List of dictionaries with file information (filename, local_path, etc.)
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT filename, local_path, file_size, field_type FROM downloads
+            WHERE radar_name = ? AND strategy = ? AND vol_nr = ?
+            AND observation_datetime = ? AND status = 'completed'
+        """,
+            (radar_name, strategy, vol_nr, observation_datetime),
+        )
+
+        return [
+            {
+                "filename": row[0],
+                "local_path": row[1],
+                "file_size": row[2],
+                "field_type": row[3],
+            }
+            for row in cursor.fetchall()
+        ]
+
+    def get_volumes_by_status(self, status: str) -> List[Dict]:
+        """
+        Get volumes by processing status.
+
+        Args:
+            status: Processing status to filter by
+
+        Returns:
+            List of volume info dictionaries
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT * FROM volume_processing
+            WHERE status = ?
+            ORDER BY observation_datetime DESC
+        """,
+            (status,),
+        )
+
+        return [dict(row) for row in cursor.fetchall()]
+
+    def get_latest_registered_volume_datetime(self, radar_name: str) -> Optional[str]:
+        """
+        Get the observation datetime of the latest registered volume for a radar.
+
+        Args:
+            radar_name: Radar name to filter by
+
+        Returns:
+            ISO format datetime string of latest volume, or None if no volumes exist
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT observation_datetime FROM volume_processing
+            WHERE radar_name = ?
+            ORDER BY observation_datetime DESC
+            LIMIT 1
+        """,
+            (radar_name,),
+        )
+
+        row = cursor.fetchone()
+        return row[0] if row else None
+
+    def get_unprocessed_volumes(self) -> List[Dict]:
+        """
+        Get all volumes that haven't been processed yet (both complete and incomplete).
+
+        Returns:
+            List of volume info dictionaries
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT * FROM volume_processing
+            WHERE status = 'pending'
+            ORDER BY observation_datetime ASC
+        """
+        )
+
+        return [dict(row) for row in cursor.fetchall()]
+
+    def get_stuck_volumes(self, timeout_minutes: int) -> List[Dict]:
+        """
+        Get volumes that have been in 'processing' status for longer than the timeout.
+
+        These volumes are considered stuck and should be reset back to 'pending' for retry.
+
+        Args:
+            timeout_minutes: Timeout in minutes - volumes in 'processing' status longer than
+                           this will be considered stuck
+
+        Returns:
+            List of volume info dictionaries that are stuck
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        # Calculate the cutoff time (timeout_minutes ago)
+        now = datetime.now(timezone.utc)
+        cutoff_time = now - timedelta(minutes=timeout_minutes)
+        cutoff_iso = cutoff_time.isoformat()
+
+        cursor.execute(
+            """
+            SELECT * FROM volume_processing
+            WHERE status = 'processing' AND updated_at < ?
+            ORDER BY updated_at ASC
+        """,
+            (cutoff_iso,),
+        )
+
+        return [dict(row) for row in cursor.fetchall()]
+
+    def reset_stuck_volumes(self, timeout_minutes: int) -> int:
+        """
+        Reset volumes that have been stuck in 'processing' status back to 'pending'.
+
+        This allows stuck volumes to be retried. Updates their status and updated_at timestamp.
+
+        Args:
+            timeout_minutes: Timeout in minutes - volumes in 'processing' status longer than
+                           this will be reset
+
+        Returns:
+            Number of volumes that were reset
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        now = datetime.now(timezone.utc).isoformat()
+
+        # Calculate the cutoff time (timeout_minutes ago)
+        cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=timeout_minutes)
+        cutoff_iso = cutoff_time.isoformat()
+
+        cursor.execute(
+            """
+            UPDATE volume_processing
+            SET status = 'pending', updated_at = ?
+            WHERE status = 'processing' AND updated_at < ?
+        """,
+            (now, cutoff_iso),
+        )
+
+        conn.commit()
+        num_reset = cursor.rowcount
+        if num_reset > 0:
+            logger.info(f"Reset {num_reset} stuck volumes from 'processing' back to 'pending'")
+
+        return num_reset

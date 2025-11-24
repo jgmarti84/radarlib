@@ -1,5 +1,6 @@
 import logging
 import os
+import tempfile
 import time
 import zlib
 from contextlib import contextmanager
@@ -52,6 +53,45 @@ def decbufr_library_context(root_resources: str | None = None):
     finally:
         # No explicit unload in ctypes, but could add cleanup if needed
         pass
+
+
+@contextmanager
+def safe_c_call():
+    """
+    Context manager that redirects C library stderr to capture error messages
+    without terminating the Python process.
+
+    This helps catch C library errors that would otherwise crash Python.
+
+    Yields:
+        A tuple of (stderr_file, temp_file) for logging purposes.
+    """
+    # Save original stderr file descriptor
+    original_stderr = os.dup(2)
+
+    try:
+        # Create temporary file to capture stderr
+        with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".err") as tmp:
+            temp_file_path = tmp.name
+
+        # Redirect stderr to temporary file
+        stderr_file = open(temp_file_path, "w")
+        os.dup2(stderr_file.fileno(), 2)
+
+        yield stderr_file, temp_file_path
+
+    finally:
+        # Restore original stderr
+        os.dup2(original_stderr, 2)
+        os.close(original_stderr)
+
+        # Close and clean up temp file
+        try:
+            stderr_file.close()
+            if os.path.exists(temp_file_path):
+                os.unlink(temp_file_path)
+        except Exception:
+            pass
 
 
 def bufr_name_metadata(bufr_filename: str) -> dict:
@@ -115,26 +155,60 @@ def get_metadata(lib: CDLL, bufr_path: str, root_resources: str | None = None) -
     Returns:
         Diccionario con claves: 'year', 'month', 'day', 'hour', 'min',
         'lat', 'lon' y 'radar_height'.
+
+    Raises:
+        RuntimeError: Si el archivo no existe o la función C falla.
     """
     if root_resources is None:
         root_resources = config.BUFR_RESOURCES_PATH
+
+    # Validate input file exists
+    if not os.path.exists(bufr_path):
+        raise FileNotFoundError(f"BUFR file not found: {bufr_path}")
+
     get_meta_data = lib.get_meta_data
     get_meta_data.argtypes = [c_char_p, c_char_p]
-
     get_meta_data.restype = POINTER(meta_t)
 
     tables_path = os.path.join(root_resources, "bufr_tables")
-    metadata = get_meta_data(bufr_path.encode("utf-8"), tables_path.encode("utf-8"))
-    return {
-        "year": metadata.contents.year,
-        "month": metadata.contents.month,
-        "day": metadata.contents.day,
-        "hour": metadata.contents.hour,
-        "min": metadata.contents.min,
-        "lat": metadata.contents.radar.lat,
-        "lon": metadata.contents.radar.lon,
-        "radar_height": metadata.contents.radar_height,
-    }
+
+    # Validate tables path exists
+    if not os.path.exists(tables_path):
+        raise FileNotFoundError(f"BUFR tables directory not found: {tables_path}")
+
+    try:
+        with safe_c_call() as (stderr_file, temp_file_path):
+            metadata = get_meta_data(bufr_path.encode("utf-8"), tables_path.encode("utf-8"))
+
+        # Check if stderr captured any error messages
+        try:
+            with open(temp_file_path, "r") as f:
+                stderr_content = f.read().strip()
+                if stderr_content:
+                    raise RuntimeError(f"C library error: {stderr_content}")
+        except FileNotFoundError:
+            pass
+
+        # Validate returned pointer is not null
+        if metadata is None:
+            raise RuntimeError(f"get_meta_data returned NULL for {bufr_path}")
+
+        # Validate metadata contents
+        if metadata.contents.year < 1900 or metadata.contents.year > 2100:
+            raise ValueError(f"Invalid year from BUFR file: {metadata.contents.year}")
+
+        return {
+            "year": metadata.contents.year,
+            "month": metadata.contents.month,
+            "day": metadata.contents.day,
+            "hour": metadata.contents.hour,
+            "min": metadata.contents.min,
+            "lat": metadata.contents.radar.lat,
+            "lon": metadata.contents.radar.lon,
+            "radar_height": metadata.contents.radar_height,
+        }
+    except Exception as e:
+        raise RuntimeError(f"C library error in get_meta_data: {e}") from e
 
 
 def get_elevations(lib: CDLL, bufr_path: str, max_elev: int = 30, root_resources: str | None = None) -> np.ndarray:
@@ -149,16 +223,39 @@ def get_elevations(lib: CDLL, bufr_path: str, max_elev: int = 30, root_resources
 
     Returns:
         Un numpy.ndarray con las elevaciones (float).
+
+    Raises:
+        RuntimeError: Si la función C falla.
+        ValueError: Si los valores de elevación son inválidos.
     """
     if root_resources is None:
         root_resources = config.BUFR_RESOURCES_PATH
+
     get_elevation_data = lib.get_elevation_data
     get_elevation_data.argtypes = [c_char_p, c_char_p]
     array_shape = c_double * max_elev
     get_elevation_data.restype = POINTER(array_shape)
     tables_path = os.path.join(root_resources, "bufr_tables")
-    arr = get_elevation_data(bufr_path.encode("utf-8"), tables_path.encode("utf-8"))
-    return np.asarray(list(arr.contents))
+
+    try:
+        arr = get_elevation_data(bufr_path.encode("utf-8"), tables_path.encode("utf-8"))
+
+        if arr is None:
+            raise RuntimeError(f"get_elevation_data returned NULL for {bufr_path}")
+
+        result = np.asarray(list(arr.contents))
+
+        # Validate elevations are reasonable (between -1 and 90 degrees)
+        valid_elevs = result[result > 0]  # Filter out zeros/invalid values
+        if len(valid_elevs) == 0:
+            raise ValueError("No valid elevations found in BUFR file")
+
+        if np.any((valid_elevs < -1) | (valid_elevs > 90)):
+            raise ValueError(f"Invalid elevation values: {valid_elevs[valid_elevs < -1 or valid_elevs > 90]}")
+
+        return result
+    except Exception as e:
+        raise RuntimeError(f"C library error in get_elevation_data: {e}") from e
 
 
 def get_raw_volume(lib: CDLL, bufr_path: str, size: int, root_resources: str | None = None) -> np.ndarray:
@@ -174,16 +271,38 @@ def get_raw_volume(lib: CDLL, bufr_path: str, size: int, root_resources: str | N
 
     Returns:
         numpy.ndarray de enteros con el volumen crudo.
+
+    Raises:
+        RuntimeError: Si la función C falla.
+        ValueError: Si el tamaño es inválido.
     """
     if root_resources is None:
         root_resources = config.BUFR_RESOURCES_PATH
+
+    if size <= 0:
+        raise ValueError(f"Invalid size: {size}")
+
     get_data = lib.get_data
     get_data.argtypes = [c_char_p, c_char_p]
     array_shape = c_int * size
     get_data.restype = POINTER(array_shape)
     tables_path = os.path.join(root_resources, "bufr_tables")
-    raw = get_data(bufr_path.encode("utf-8"), tables_path.encode("utf-8"))
-    return np.asarray(list(raw.contents))
+
+    try:
+        raw = get_data(bufr_path.encode("utf-8"), tables_path.encode("utf-8"))
+
+        if raw is None:
+            raise RuntimeError(f"get_data returned NULL for {bufr_path}")
+
+        result = np.asarray(list(raw.contents))
+
+        # Validate we got the expected size
+        if len(result) != size:
+            raise ValueError(f"Data size mismatch: expected {size}, got {len(result)}")
+
+        return result
+    except Exception as e:
+        raise RuntimeError(f"C library error in get_raw_volume: {e}") from e
 
 
 def get_size_data(lib: CDLL, bufr_path: str, root_resources: str | None = None) -> int:
@@ -198,14 +317,31 @@ def get_size_data(lib: CDLL, bufr_path: str, root_resources: str | None = None) 
 
     Returns:
         Entero con el tamaño (número de elementos) del volumen codificado.
+
+    Raises:
+        RuntimeError: Si la función C falla o retorna un valor inválido.
     """
     if root_resources is None:
         root_resources = config.BUFR_RESOURCES_PATH
+
     get_size_data = lib.get_size_data
     get_size_data.argtypes = [c_char_p, c_char_p]
     get_size_data.restype = c_int
     tables_path = os.path.join(root_resources, "bufr_tables")
-    return get_size_data(bufr_path.encode("utf-8"), tables_path.encode("utf-8"))
+
+    try:
+        size = get_size_data(bufr_path.encode("utf-8"), tables_path.encode("utf-8"))
+
+        if size <= 0:
+            raise ValueError(f"Invalid data size: {size}")
+
+        # Sanity check: size should be reasonable (< 100MB = 26M ints)
+        if size > 26_000_000:
+            raise ValueError(f"Data size too large: {size} elements")
+
+        return size
+    except Exception as e:
+        raise RuntimeError(f"C library error in get_size_data: {e}") from e
 
 
 def parse_sweeps(vol: np.ndarray, nsweeps: int, elevs: np.ndarray) -> list[dict]:
