@@ -27,12 +27,7 @@ from radarlib.daemons.download_daemon import (  # Backward compatibility aliases
 )
 
 # Legacy daemons (for backward compatibility)
-from radarlib.daemons.legacy import (
-    DateBasedDaemonConfig,
-    DateBasedFTPDaemon,
-    FTPDaemon,
-    FTPDaemonConfig,
-)
+from radarlib.daemons.legacy import DateBasedDaemonConfig, DateBasedFTPDaemon, FTPDaemon, FTPDaemonConfig
 from radarlib.daemons.manager import DaemonManager, DaemonManagerConfig
 from radarlib.daemons.processing_daemon import ProcessingDaemon, ProcessingDaemonConfig
 from radarlib.daemons.product_daemon import ProductGenerationDaemon, ProductGenerationDaemonConfig

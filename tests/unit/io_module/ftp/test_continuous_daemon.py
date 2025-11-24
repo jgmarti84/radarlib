@@ -7,11 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from radarlib.io.ftp.continuous_daemon import (
-    ContinuousDaemon,
-    ContinuousDaemonConfig,
-    ContinuousDaemonError,
-)
+from radarlib.io.ftp.continuous_daemon import ContinuousDaemon, ContinuousDaemonConfig, ContinuousDaemonError
 
 
 @pytest.fixture
