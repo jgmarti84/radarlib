@@ -27,7 +27,7 @@ class ProductGenerationDaemonConfig:
                      Format: {'0315': {'01': ['DBZH', 'DBZV'], '02': ['VRAD']}}
         radar_name: Radar name to process (e.g., "RMA1")
         poll_interval: Seconds between checks for new volumes to process
-        max_concurrent_processing: Maximum simultaneous product generation tasks
+        max_concurrent_processing: (Deprecated - kept for compatibility) Processing is now sequential
         product_type: Type of product to generate ('image' for PNG visualization, 'geotiff', etc.)
         add_colmax: Whether to generate COLMAX field (only for 'image' product type)
         stuck_volume_timeout_minutes: Minutes to wait before resetting a stuck volume from
@@ -40,7 +40,7 @@ class ProductGenerationDaemonConfig:
     volume_types: Dict[str, Dict[str, List[str]]]
     radar_name: str
     poll_interval: int = 30
-    max_concurrent_processing: int = 2
+    max_concurrent_processing: int = 2  # Deprecated - processing is now sequential for stability
     product_type: str = "image"
     add_colmax: bool = True
     stuck_volume_timeout_minutes: int = 60
@@ -57,6 +57,9 @@ class ProductGenerationDaemon:
 
     The daemon implements the functionality similar to process_volume function from
     vol_process.py, but with all database updates and error tracking implemented.
+    
+    Volumes are processed sequentially to avoid threading issues with matplotlib and NetCDF
+    libraries, ensuring reliable and stable product generation.
 
     Example:
         >>> from pathlib import Path
@@ -81,8 +84,6 @@ class ProductGenerationDaemon:
         self.config = config
         self.state_tracker = SQLiteStateTracker(config.state_db)
         self._running = False
-        self._processing_semaphore: Optional[asyncio.Semaphore] = None
-        self._executor = None  # Will be initialized in run()
 
         # Ensure output directory exists
         self.config.local_product_dir.mkdir(parents=True, exist_ok=True)
@@ -97,22 +98,17 @@ class ProductGenerationDaemon:
         """
         Run the daemon to monitor and generate products for processed volumes.
 
-        Continuously checks for volumes ready for product generation and processes them.
+        Continuously checks for volumes ready for product generation and processes them sequentially.
         """
-        from concurrent.futures import ThreadPoolExecutor
-        
         self._running = True
-        self._processing_semaphore = asyncio.Semaphore(self.config.max_concurrent_processing)
-        # Create a dedicated thread pool executor with max_workers matching concurrent processing limit
-        self._executor = ThreadPoolExecutor(max_workers=self.config.max_concurrent_processing)
 
         logger.info(f"Starting {self.config.product_type} generation daemon for radar '{self.config.radar_name}'")
         logger.info(f"Monitoring NetCDF files in '{self.config.local_netcdf_dir}'")
         logger.info(f"Saving {self.config.product_type} files to '{self.config.local_product_dir}'")
         logger.info(
             f"Configuration: poll_interval={self.config.poll_interval}s, "
-            f"max_concurrent={self.config.max_concurrent_processing}, "
-            f"stuck_timeout={self.config.stuck_volume_timeout_minutes}min"
+            f"stuck_timeout={self.config.stuck_volume_timeout_minutes}min, "
+            f"processing_mode=sequential"
         )
 
         try:
@@ -137,10 +133,6 @@ class ProductGenerationDaemon:
             logger.info(f"{self.config.product_type} daemon interrupted, shutting down...")
         finally:
             self._running = False
-            # Shutdown executor
-            if self._executor:
-                self._executor.shutdown(wait=True)
-                logger.info("Executor shutdown complete")
             # Log final statistics
             logger.info(
                 f"{self.config.product_type} daemon shutting down. Statistics: "
@@ -176,10 +168,10 @@ class ProductGenerationDaemon:
 
     async def _process_volumes_for_products(self) -> None:
         """
-        Process all volumes that are ready for product generation.
+        Process all volumes that are ready for product generation sequentially.
 
         Gets volumes with status='completed' and no product or product status='pending' or 'failed',
-        and generates products for them.
+        and generates products for them one at a time to avoid threading issues.
         """
         # Get all volumes ready for product generation
         volumes = self.state_tracker.get_volumes_for_product_generation(self.config.product_type)
@@ -190,25 +182,31 @@ class ProductGenerationDaemon:
 
         logger.info(f"Found {len(volumes)} volume(s) ready for {self.config.product_type} generation")
 
-        # Process volumes concurrently
-        tasks = []
+        # Process volumes sequentially to avoid threading issues with matplotlib/NetCDF
+        num_success = 0
+        num_failed = 0
+        
         for volume_info in volumes:
-            task = self._generate_product_async(volume_info)
-            tasks.append(task)
-
-        if tasks:
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            # Count successes and failures
-            num_success = sum(1 for r in results if r is True)
-            num_failed = sum(1 for r in results if r is False or isinstance(r, Exception))
-            if num_failed > 0:
-                logger.warning(
-                    f"{self.config.product_type} generation complete: {num_success} succeeded, {num_failed} failed"
-                )
+            try:
+                result = await self._generate_product_async(volume_info)
+                if result:
+                    num_success += 1
+                else:
+                    num_failed += 1
+            except Exception as e:
+                logger.error(f"Exception processing volume {volume_info.get('volume_id')}: {e}", exc_info=True)
+                num_failed += 1
+        
+        if num_failed > 0:
+            logger.warning(
+                f"{self.config.product_type} generation complete: {num_success} succeeded, {num_failed} failed"
+            )
+        else:
+            logger.info(f"{self.config.product_type} generation complete: {num_success} succeeded")
 
     async def _generate_product_async(self, volume_info: Dict) -> bool:
         """
-        Generate products for a single volume asynchronously.
+        Generate products for a single volume.
 
         Args:
             volume_info: Dictionary with volume information from database
@@ -216,102 +214,92 @@ class ProductGenerationDaemon:
         Returns:
             True if successful, False otherwise
         """
-        if self._processing_semaphore is None:
-            raise RuntimeError("Processing semaphore not initialized. Call run() first.")
-
-        async with self._processing_semaphore:
-            volume_id = volume_info["volume_id"]
-            netcdf_path = volume_info.get("netcdf_path")
-            is_complete = volume_info.get("is_complete", 0) == 1
-
-            # Register product generation if not already registered
-            self.state_tracker.register_product_generation(volume_id, self.config.product_type)
-
-            if not netcdf_path:
-                logger.error(f"No NetCDF path found for volume {volume_id}")
-                self.state_tracker.mark_product_status(
-                    volume_id, self.config.product_type, "failed",
-                    error_message="No NetCDF path found",
-                    error_type="NO_NETCDF_PATH"
-                )
-                self._stats["volumes_failed"] += 1
-                return False
-
-            netcdf_file = Path(netcdf_path)
-            if not netcdf_file.exists():
-                logger.error(f"NetCDF file not found: {netcdf_file}")
-                self.state_tracker.mark_product_status(
-                    volume_id, self.config.product_type, "failed",
-                    error_message=f"NetCDF file not found: {netcdf_file}",
-                    error_type="FILE_NOT_FOUND"
-                )
-                self._stats["volumes_failed"] += 1
-                return False
-
-            completeness_str = "complete" if is_complete else "incomplete"
-            logger.info(f"Generating {self.config.product_type} for {completeness_str} volume {volume_id}...")
-
-            # Mark as processing
-            self.state_tracker.mark_product_status(volume_id, self.config.product_type, "processing")
-
-            try:
-                # Generate products using inline logic
-                await self._generate_products_for_volume(netcdf_file, volume_info)
-
-                # Mark as completed
-                self.state_tracker.mark_product_status(volume_id, self.config.product_type, "completed")
-                logger.info(
-                    f"Successfully generated {self.config.product_type} for {completeness_str} volume {volume_id}"
-                )
-                self._stats["volumes_processed"] += 1
-                return True
-
-            except Exception as e:
-                error_msg = f"Failed to generate {self.config.product_type} for {completeness_str} volume {volume_id}: {str(e)}"
-                logger.error(error_msg, exc_info=True)
-                # Determine error type from exception
-                error_type = type(e).__name__
-                self.state_tracker.mark_product_status(
-                    volume_id, self.config.product_type, "failed",
-                    error_message=str(e)[:500],  # Limit error message length
-                    error_type=error_type
-                )
-                self._stats["volumes_failed"] += 1
-                return False
-
-    async def _generate_products_for_volume(self, netcdf_path: Path, volume_info: Dict) -> None:
-        """
-        Generate visualization products for all fields in a volume.
-
-        Implements the logic from process_volume function with database updates.
-
-        Args:
-            netcdf_path: Path to the NetCDF file
-            volume_info: Volume information from database
-
-        Raises:
-            Exception if product generation fails
-        """
         volume_id = volume_info["volume_id"]
-        vol_types = self.config.volume_types
+        netcdf_path = volume_info.get("netcdf_path")
+        is_complete = volume_info.get("is_complete", 0) == 1
 
-        # Run in dedicated executor to avoid blocking and ensure thread isolation
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(self._executor, self._generate_products_sync, netcdf_path, volume_id, vol_types)
+        # Register product generation if not already registered
+        self.state_tracker.register_product_generation(volume_id, self.config.product_type)
 
-    def _generate_products_sync(self, netcdf_path: Path, volume_id: str, vol_types: Dict) -> None:
+        if not netcdf_path:
+            logger.error(f"No NetCDF path found for volume {volume_id}")
+            self.state_tracker.mark_product_status(
+                volume_id, self.config.product_type, "failed",
+                error_message="No NetCDF path found",
+                error_type="NO_NETCDF_PATH"
+            )
+            self._stats["volumes_failed"] += 1
+            return False
+
+        netcdf_file = Path(netcdf_path)
+        if not netcdf_file.exists():
+            logger.error(f"NetCDF file not found: {netcdf_file}")
+            self.state_tracker.mark_product_status(
+                volume_id, self.config.product_type, "failed",
+                error_message=f"NetCDF file not found: {netcdf_file}",
+                error_type="FILE_NOT_FOUND"
+            )
+            self._stats["volumes_failed"] += 1
+            return False
+
+        completeness_str = "complete" if is_complete else "incomplete"
+        logger.info(f"Generating {self.config.product_type} for {completeness_str} volume {volume_id}...")
+
+        # Mark as processing
+        self.state_tracker.mark_product_status(volume_id, self.config.product_type, "processing")
+
+        try:
+            # Generate products synchronously (no threading to avoid issues)
+            self._generate_products_sync(netcdf_file, volume_info)
+
+            # Mark as completed
+            self.state_tracker.mark_product_status(volume_id, self.config.product_type, "completed")
+            logger.info(
+                f"Successfully generated {self.config.product_type} for {completeness_str} volume {volume_id}"
+            )
+            self._stats["volumes_processed"] += 1
+            return True
+
+        except Exception as e:
+            error_msg = f"Failed to generate {self.config.product_type} for {completeness_str} volume {volume_id}: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            # Determine error type from exception
+            error_type = type(e).__name__
+            self.state_tracker.mark_product_status(
+                volume_id, self.config.product_type, "failed",
+                error_message=str(e)[:500],  # Limit error message length
+                error_type=error_type
+            )
+            self._stats["volumes_failed"] += 1
+            return False
+
+    def _generate_products_sync(self, netcdf_path: Path, volume_info: Dict) -> None:
         """
         Synchronous product generation logic.
 
         This implements the process_volume logic with all TODOs resolved.
+        Runs synchronously to avoid threading issues with matplotlib and NetCDF.
         """
         # Import dependencies
         import matplotlib
-        # Set backend to Agg for thread safety - must be done before importing pyplot
+        # Set backend to Agg for non-interactive plotting
         matplotlib.use('Agg')
         
         from radarlib import config
         from radarlib.io.pyart.colmax import generate_colmax
+        from radarlib.io.pyart.filters import filter_fields_grc1
+        from radarlib.io.pyart.pyart_radar import estandarizar_campos_RMA, read_radar_netcdf
+        from radarlib.io.pyart.radar_png_plotter import FieldPlotConfig, RadarPlotConfig, plot_ppi_field, save_ppi_png
+        from radarlib.utils.fields_utils import get_lowest_nsweep
+        from radarlib.io.pyart.vol_process import determine_reflectivity_fields, product_path_and_filename
+        
+        import pyart
+        from pyart.config import get_field_name
+        import matplotlib.pyplot as plt
+
+        filename = str(netcdf_path)
+        volume_id = volume_info["volume_id"]
+        vol_types = self.config.volume_types
         from radarlib.io.pyart.filters import filter_fields_grc1
         from radarlib.io.pyart.pyart_radar import estandarizar_campos_RMA, read_radar_netcdf
         from radarlib.io.pyart.radar_png_plotter import FieldPlotConfig, RadarPlotConfig, plot_ppi_field, save_ppi_png
