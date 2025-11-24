@@ -8,14 +8,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional
 
-from radarlib.io.ftp import (
-    ContinuousDaemon,
-    ContinuousDaemonConfig,
-    ProcessingDaemon,
-    ProcessingDaemonConfig,
-    ProductGenerationDaemon,
-    ProductGenerationDaemonConfig,
-)
+from radarlib.io.ftp.continuous_daemon import ContinuousDaemon, ContinuousDaemonConfig
+from radarlib.io.ftp.processing_daemon import ProcessingDaemon, ProcessingDaemonConfig
+from radarlib.io.ftp.product_daemon import ProductGenerationDaemon, ProductGenerationDaemonConfig
 
 logger = logging.getLogger(__name__)
 
