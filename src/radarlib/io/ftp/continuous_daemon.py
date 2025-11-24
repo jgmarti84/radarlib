@@ -18,7 +18,7 @@ from radarlib.io.ftp.ftp_client import FTPError, RadarFTPClientAsync
 from radarlib.io.ftp.sqlite_state_tracker import SQLiteStateTracker
 from radarlib.utils.names_utils import build_vol_types_regex, extract_bufr_filename_components
 
-logger = logging.getLogger("ContinuousDaemon")
+logger = logging.getLogger(__name__)
 
 
 class ContinuousDaemonError(Exception):
