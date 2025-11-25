@@ -14,10 +14,6 @@ from .client import FTPClient
 
 # Keep old files for backward compatibility during transition
 # These will be imported from their original locations
-from .continuous_daemon import ContinuousDaemon, ContinuousDaemonConfig
-from .daemon import FTPDaemon, FTPDaemonConfig
-from .daemon_manager import DaemonManager, DaemonManagerConfig
-from .date_daemon import DateBasedDaemonConfig, DateBasedFTPDaemon
 from .ftp import (
     FTP_IsADirectoryError,
     FTPActionError,
@@ -31,10 +27,6 @@ from .ftp import (
     parse_ftp_path,
 )
 from .ftp_client import FTPError, RadarFTPClientAsync
-from .processing_daemon import ProcessingDaemon, ProcessingDaemonConfig
-from .product_daemon import ProductGenerationDaemon, ProductGenerationDaemonConfig
-from .sqlite_state_tracker import SQLiteStateTracker
-from .state_tracker import FileStateTracker
 
 __all__ = [
     # FTP clients
@@ -42,22 +34,8 @@ __all__ = [
     "RadarFTPClientAsync",
     "FTPError",
     # Main daemons (preferred location: radarlib.daemons)
-    "ProcessingDaemon",
-    "ProcessingDaemonConfig",
-    "ProductGenerationDaemon",
-    "ProductGenerationDaemonConfig",
-    "DaemonManager",
-    "DaemonManagerConfig",
     # Legacy daemon names (backward compatibility)
-    "ContinuousDaemon",
-    "ContinuousDaemonConfig",
-    "FTPDaemon",
-    "FTPDaemonConfig",
-    "DateBasedFTPDaemon",
-    "DateBasedDaemonConfig",
     # State trackers (preferred location: radarlib.state)
-    "FileStateTracker",
-    "SQLiteStateTracker",
     # FTP utility functions
     "ftp_connection_manager",
     "list_files_in_remote_dir",

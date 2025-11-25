@@ -54,9 +54,6 @@ class ProductGenerationDaemon:
     reads the NetCDF file, generates visualization products (PNG plots, COLMAX),
     and tracks the generation status in a separate product_generation table.
 
-    The daemon implements the functionality similar to process_volume function from
-    vol_process.py, but with all database updates and error tracking implemented.
-
     Volumes are processed sequentially to avoid threading issues with matplotlib and NetCDF
     libraries, ensuring reliable and stable product generation.
 
