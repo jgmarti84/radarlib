@@ -17,14 +17,7 @@ Example:
 """
 
 # Main daemons
-from radarlib.daemons.download_daemon import (  # Backward compatibility aliases
-    ContinuousDaemon,
-    ContinuousDaemonConfig,
-    ContinuousDaemonError,
-    DownloadDaemon,
-    DownloadDaemonConfig,
-    DownloadDaemonError,
-)
+from radarlib.daemons.download_daemon import DownloadDaemon, DownloadDaemonConfig, DownloadDaemonError
 
 # Legacy daemons (for backward compatibility)
 from radarlib.daemons.legacy import DateBasedDaemonConfig, DateBasedFTPDaemon, FTPDaemon, FTPDaemonConfig
@@ -43,10 +36,6 @@ __all__ = [
     "ProductGenerationDaemonConfig",
     "DaemonManager",
     "DaemonManagerConfig",
-    # Backward compatibility (old names)
-    "ContinuousDaemon",
-    "ContinuousDaemonConfig",
-    "ContinuousDaemonError",
     # Legacy daemons
     "FTPDaemon",
     "FTPDaemonConfig",

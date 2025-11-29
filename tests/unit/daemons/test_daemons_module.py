@@ -38,22 +38,6 @@ class TestDaemonsImport:
         assert DaemonManager is not None
         assert DaemonManagerConfig is not None
 
-    def test_backward_compatibility_aliases(self):
-        """Test that backward compatibility aliases work."""
-        from radarlib.daemons import (
-            ContinuousDaemon,
-            ContinuousDaemonConfig,
-            ContinuousDaemonError,
-            DownloadDaemon,
-            DownloadDaemonConfig,
-            DownloadDaemonError,
-        )
-
-        # New and old names should be the same class
-        assert ContinuousDaemon is DownloadDaemon
-        assert ContinuousDaemonConfig is DownloadDaemonConfig
-        assert ContinuousDaemonError is DownloadDaemonError
-
     def test_legacy_daemons_import(self):
         """Test importing legacy daemons."""
         from radarlib.daemons import DateBasedDaemonConfig, DateBasedFTPDaemon, FTPDaemon, FTPDaemonConfig

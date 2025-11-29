@@ -263,9 +263,3 @@ class DownloadDaemon:
             "bufr_files_downloaded": self._stats["bufr_files_downloaded"],
             "bufr_files_failed": self._stats["bufr_files_failed"],
         }
-
-
-# Backward compatibility aliases
-ContinuousDaemon = DownloadDaemon
-ContinuousDaemonConfig = DownloadDaemonConfig
-ContinuousDaemonError = DownloadDaemonError

@@ -4,16 +4,11 @@
 import asyncio
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Optional
 
-from radarlib.daemons.download_daemon import (  # noqa: F401
-    ContinuousDaemon,
-    ContinuousDaemonConfig,
-    DownloadDaemon,
-    DownloadDaemonConfig,
-)
+from radarlib.daemons.download_daemon import DownloadDaemon, DownloadDaemonConfig
 from radarlib.daemons.processing_daemon import ProcessingDaemon, ProcessingDaemonConfig
 from radarlib.daemons.product_daemon import ProductGenerationDaemon, ProductGenerationDaemonConfig
 
@@ -51,7 +46,7 @@ class DaemonManagerConfig:
     ftp_password: str
     ftp_base_path: str
     volume_types: Dict
-    start_date: datetime
+    start_date: Optional[datetime] = None
     # end_date: Optional[datetime] = None
     download_poll_interval: int = 60
     processing_poll_interval: int = 30
@@ -61,6 +56,13 @@ class DaemonManagerConfig:
     enable_product_daemon: bool = True
     product_type: str = "image"
     add_colmax: bool = True
+
+    def __post_init__(self):
+        """Post-initialization checks."""
+        if self.start_date and self.start_date.tzinfo is None:
+            raise ValueError("start_date must be timezone-aware (UTC)")
+        if self.start_date is None:
+            self.start_date = datetime.now().replace(tzinfo=timezone.utc)
 
 
 class DaemonManager:
