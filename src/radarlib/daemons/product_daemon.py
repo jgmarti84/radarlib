@@ -29,6 +29,7 @@ class ProductGenerationDaemonConfig:
         max_concurrent_processing: (Deprecated - kept for compatibility) Processing is now sequential
         product_type: Type of product to generate ('image' for PNG visualization, 'geotiff', etc.)
         add_colmax: Whether to generate COLMAX field (only for 'image' product type)
+        geotiff_crs: Coordinate reference system for GeoTIFF export (e.g., 'EPSG:4326')
         stuck_volume_timeout_minutes: Minutes to wait before resetting a stuck volume from
                                       'processing' status back to 'pending' for retry
     """
@@ -42,6 +43,7 @@ class ProductGenerationDaemonConfig:
     max_concurrent_processing: int = 2  # Deprecated - processing is now sequential for stability
     product_type: str = "image"
     add_colmax: bool = True
+    geotiff_crs: str = "EPSG:4326"
     stuck_volume_timeout_minutes: int = 60
 
 
@@ -275,6 +277,45 @@ class ProductGenerationDaemon:
             self._stats["volumes_failed"] += 1
             return False
 
+    def _generate_geotiff_products(self, radar, filename: str) -> None:
+        """
+        Generate GeoTIFF products for a radar volume.
+
+        Args:
+            radar: PyART radar object
+            filename: Name of the source file for logging
+
+        Raises:
+            RuntimeError: If GeoTIFF generation fails
+        """
+        from radarlib.io.pyart.radar_png_plotter import export_fields_to_geotiff
+        from radarlib.utils.fields_utils import get_lowest_nsweep
+
+        logger.debug(f"Generating GeoTIFF products for {Path(filename).stem}")
+
+        # Get all available fields from radar
+        fields_to_export = list(radar.fields.keys())
+
+        if not fields_to_export:
+            raise RuntimeError("No fields available in radar for GeoTIFF export")
+
+        # Get lowest sweep
+        sweep = get_lowest_nsweep(radar)
+
+        # Export all fields to GeoTIFF
+        geotiff_results = export_fields_to_geotiff(
+            radar=radar,
+            fields=fields_to_export,
+            output_base_path=str(self.config.local_product_dir),
+            sweep=sweep,
+            crs=self.config.geotiff_crs,
+        )
+
+        if not geotiff_results:
+            raise RuntimeError("No GeoTIFF files were successfully generated")
+
+        logger.info(f"Successfully generated {len(geotiff_results)} GeoTIFF file(s) for {Path(filename).stem}")
+
     def _generate_products_sync(self, netcdf_path: Path, volume_info: Dict) -> None:
         """
         Synchronous product generation logic.
@@ -321,6 +362,17 @@ class ProductGenerationDaemon:
                 error_msg = f"Standardizing fields: {e}"
                 logger.error(f"Error standardizing fields {filename}: {e}")
                 raise RuntimeError(error_msg)
+
+            # --- Handle GeoTIFF product type -------------------------------------------------
+            if self.config.product_type == "geotiff":
+                try:
+                    self._generate_geotiff_products(radar, filename)
+                    # Early return for geotiff product type - no need for PNG generation
+                    return
+                except Exception as e:
+                    error_msg = f"Generating GeoTIFF products: {e}"
+                    logger.error(f"Error generating GeoTIFF for {Path(filename).stem}: {e}")
+                    raise RuntimeError(error_msg)
 
             # --- Determine reflectivity fields (horizontal and vertical) ---
             fields = determine_reflectivity_fields(radar)
