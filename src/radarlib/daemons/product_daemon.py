@@ -296,7 +296,13 @@ class ProductGenerationDaemon:
         from radarlib.io.pyart.colmax import generate_colmax
         from radarlib.io.pyart.filters import filter_fields_grc1
         from radarlib.io.pyart.pyart_radar import estandarizar_campos_RMA, read_radar_netcdf
-        from radarlib.io.pyart.radar_png_plotter import FieldPlotConfig, RadarPlotConfig, plot_ppi_field, save_ppi_png
+        from radarlib.io.pyart.radar_png_plotter import (
+            FieldPlotConfig,
+            RadarPlotConfig,
+            export_fields_to_geotiff,
+            plot_ppi_field,
+            save_ppi_png,
+        )
         from radarlib.utils.fields_utils import determine_reflectivity_fields, get_lowest_nsweep
         from radarlib.utils.names_utils import product_path_and_filename
 
@@ -321,6 +327,44 @@ class ProductGenerationDaemon:
                 error_msg = f"Standardizing fields: {e}"
                 logger.error(f"Error standardizing fields {filename}: {e}")
                 raise RuntimeError(error_msg)
+
+            # --- Handle GeoTIFF product type -------------------------------------------------
+            if self.config.product_type == "geotiff":
+                logger.debug(f"Generating GeoTIFF products for {Path(filename).stem}")
+                
+                # Get all available fields from radar
+                fields_to_export = list(radar.fields.keys())
+                
+                if not fields_to_export:
+                    raise RuntimeError("No fields available in radar for GeoTIFF export")
+                
+                # Get lowest sweep
+                sweep = get_lowest_nsweep(radar)
+                
+                # Export all fields to GeoTIFF
+                try:
+                    geotiff_results = export_fields_to_geotiff(
+                        radar=radar,
+                        fields=fields_to_export,
+                        output_base_path=str(self.config.local_product_dir),
+                        sweep=sweep,
+                        crs="EPSG:4326",  # WGS84 lat/lon
+                    )
+                    
+                    if not geotiff_results:
+                        raise RuntimeError("No GeoTIFF files were successfully generated")
+                    
+                    logger.info(
+                        f"Successfully generated {len(geotiff_results)} GeoTIFF file(s) for {Path(filename).stem}"
+                    )
+                    
+                    # Early return for geotiff product type - no need for PNG generation
+                    return
+                    
+                except Exception as e:
+                    error_msg = f"Generating GeoTIFF products: {e}"
+                    logger.error(f"Error generating GeoTIFF for {Path(filename).stem}: {e}")
+                    raise RuntimeError(error_msg)
 
             # --- Determine reflectivity fields (horizontal and vertical) ---
             fields = determine_reflectivity_fields(radar)
